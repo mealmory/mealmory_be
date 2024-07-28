@@ -12,6 +12,7 @@ const errorCode = require("./errorCode");
 const cors = require("cors");
 
 // router 파일로드 작성 위치
+const userRouter = require("./router/user");
 
 express.init = function () {
     return new Promise(async (resolve, reject) => {
@@ -66,7 +67,7 @@ express.init = function () {
                     }
 
                     if (statusCode !== 200) {
-                        res.status(statusCode ?? 200).json(dataTalbe);
+                        res.status(statusCode ?? 200).json(dataTable);
                         this._printFailLog(req, res, dataTable);
                     }
                 };
@@ -80,6 +81,7 @@ express.init = function () {
 
             // router 루트 경로 설정 지점
             // TODO: 순환 하여 router 파일읽어오는 기능 추가
+            webServer.use("/api/user", userRouter);
 
             let routers = engine.Router();
 

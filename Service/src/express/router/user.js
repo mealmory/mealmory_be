@@ -12,8 +12,7 @@ const { util, log, config, verify } = require("../../util");
 const { matchedData, validationResult, body, query } = require("express-validator");
 const validationHandler = require("../validationHandler");
 const axios = require("axios");
-// TODO: 스키마 config 셋팅
-// const schema = config.database.schema.COMMON;
+const schema = config.database.schema;
 
 router.post("/login", async (req, res) => {
     try {
@@ -46,10 +45,10 @@ router.post("/login", async (req, res) => {
         let userInfo = {
             email: userData.data.kakao_account.email,
             nickName: userData.data.kakao_account.profile.nickname,
-            image: userData.data.kakao_account.profile_image,
+            profile: userData.data.kakao_account.profile_image,
         };
 
-        let checkUser = await mysql.query(`SELECT id, email FROM ${schema}.user WHERE email = ?;`, [userInfo.email]);
+        let checkUser = await mysql.query(`SELECT id, email FROM ${schema.COMMON}.user WHERE email = ?;`, [userInfo.email]);
 
         if (!checkUser.success) {
             res.failResponse("QueryError");
@@ -60,19 +59,19 @@ router.post("/login", async (req, res) => {
 
         let result = await mysql.transactionStatement(async (method) => {
             if (checkUser.rows.length === 0) {
-                let joinUser = await method.execute(`INSERT INTO ${schema}.user (email, nickname, image) VALUES (?, ?, ?);`, [userInfo.email, userInfo.nickName, userInfo.image]);
+                let joinUser = await method.execute(`INSERT INTO ${schema.COMMON}.user (email, nickname, profile) VALUES (?, ?, ?);`, [userInfo.email, userInfo.nickName, userInfo.profile]);
 
                 if (!joinUser.success) {
                     return mysql.TRANSACTION.ROLLBACK;
                 }
 
-                let selectID = await method.query(`SELECT id FROM ${schema}.user WHERE email = ?;`, [userInfo.email]);
+                let selectID = await method.query(`SELECT id FROM ${schema.COMMON}.user WHERE email = ?;`, [userInfo.email]);
 
                 if (!selectID.success) {
                     return mysql.TRANSACTION.ROLLBACK;
                 }
 
-                let joinFlag = await method.execute(`INSERT INTO ${schema}.user_flag (uid, collect, agreement, notice) VALUES (?, ?, ?, ?);`, [selectID.rows[0].id, 0, 0, 0]);
+                let joinFlag = await method.execute(`INSERT INTO ${schema.COMMON}.user_flag (uid, collect, agreement, notice) VALUES (?, ?, ?, ?);`, [selectID.rows[0].id, 0, 0, 0]);
 
                 if (!joinFlag.success) {
                     return mysql.TRANSACTION.ROLLBACK;
@@ -84,8 +83,9 @@ router.post("/login", async (req, res) => {
                 };
 
                 let token = util.createToken(tokenData);
+                console.log(token);
 
-                let verificationUser = await method.execute(`INSERT INTO ${schema}.verification (uid, token) VALUES (?, ?);`, [tokenData.id, token.refreshToekn]);
+                let verificationUser = await method.execute(`INSERT INTO ${schema.COMMON}.verification (uid, token) VALUES (?, ?);`, [tokenData.id, token.refreshToken]);
 
                 if (!verificationUser.success) {
                     return mysql.TRANSACTION.ROLLBACK;
@@ -95,21 +95,20 @@ router.post("/login", async (req, res) => {
                     id: tokenData.id,
                     email: userInfo.email,
                     nickName: userInfo.nickName,
-                    image: userInfo.image,
+                    profile: userInfo.profile,
                     collect: 0,
                     agreement: 0,
                     accessToken: token.accessToken,
                     refreshToken: token.refreshToken,
                 };
-
             } else {
-                let userID = await method.query(`SELECT id FROM ${schema}.user WHERE email = ?;`, [userInfo.email]);
+                let userID = await method.query(`SELECT id FROM ${schema.COMMON}.user WHERE email = ?;`, [userInfo.email]);
 
                 if (!userID.success) {
                     return mysql.TRANSACTION.ROLLBACK;
                 }
 
-                let userFlag = await method.query(`SELECT collect, agreement FROM ${schema}.user_flag WHERE uid = ?;`, [userID.rows[0].id]);
+                let userFlag = await method.query(`SELECT collect, agreement FROM ${schema.COMMON}.user_flag WHERE uid = ?;`, [userID.rows[0].id]);
 
                 if (!userFlag.success) {
                     return mysql.TRANSACTION.ROLLBACK;
@@ -122,7 +121,7 @@ router.post("/login", async (req, res) => {
 
                 let token = util.createToken(tokenData);
 
-                let tokenVerify = await method.query(`SELECT uid FROM ${schema}.verification WHERE uid = ?;`, [userID.rows[0].id]);
+                let tokenVerify = await method.query(`SELECT uid FROM ${schema.COMMON}.verification WHERE uid = ?;`, [userID.rows[0].id]);
 
                 if (!tokenVerify.success) {
                     return mysql.TRANSACTION.ROLLBACK;
@@ -131,9 +130,9 @@ router.post("/login", async (req, res) => {
                 let verificationUser;
 
                 if (tokenVerify.rows.length === 0 || !tokenVerify.rows) {
-                    verificationUser = await method.execute(`INSERT INTO ${schema}.verification (uid, token) VALUES (?, ?);`, [userID.rows[0].id, token.refreshToken]);
+                    verificationUser = await method.execute(`INSERT INTO ${schema.COMMON}.verification (uid, token) VALUES (?, ?);`, [userID.rows[0].id, token.refreshToken]);
                 } else {
-                    verificationUser = await method.execute(`UPDATE ${schema}.verification SET token = ? WHERE uid = ?;`, [token.refreshToken, userID.rows[0].id]);
+                    verificationUser = await method.execute(`UPDATE ${schema.COMMON}.verification SET token = ? WHERE uid = ?;`, [token.refreshToken, userID.rows[0].id]);
                 }
 
                 if (!verificationUser.success) {
@@ -144,7 +143,7 @@ router.post("/login", async (req, res) => {
                     id: tokenData.id,
                     email: userInfo.email,
                     nickName: userInfo.nickName,
-                    image: userInfo.image,
+                    profile: userInfo.profile,
                     collect: userFlag.rows[0].collect,
                     agreement: userFlag.rows[0].agreement,
                     accessToken: token.accessToken,
@@ -168,3 +167,5 @@ router.post("/login", async (req, res) => {
         return;
     }
 });
+
+module.exports = router;

@@ -39,7 +39,9 @@ const config = {
         },
 
         schema: {
-            COMMON: process.env.DB_NAME,
+            COMMON: process.env.DB_NAME_COMMON,
+            FDATA: process.env.DB_NAME_FDATA,
+            MDATA: process.env.DB_NAME_MDATA,
         },
     },
 
