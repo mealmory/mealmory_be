@@ -8,7 +8,7 @@ const express = require("express");
 const router = express.Router();
 const mysql = require("../../mysql/main");
 const { util, log, config, verify } = require("../../util");
-// const { jwtVerify, refreshVerify } = require("../../util/verify");
+const { jwtVerify, refreshVerify } = require("../../util/verify");
 const { matchedData, validationResult, body, query } = require("express-validator");
 const validationHandler = require("../validationHandler");
 const axios = require("axios");
@@ -24,7 +24,7 @@ router.post("/login", async (req, res) => {
             params: {
                 grant_type: "authorization_code",
                 client_id: config.kakao.client_id,
-                rediect_url: config.kakao.redirect_uri,
+                redirect_uri: config.kakao.redirect_uri,
                 code: code,
             },
         });
@@ -32,11 +32,11 @@ router.post("/login", async (req, res) => {
         let kakao_token = kakaoToken.data.access_token;
 
         if (!kakao_token) {
-            res.failResponse("ParameterInvalid");
+            res.failResponse("TokenInvalid");
             return;
         }
 
-        let userData = await axios.getAdapter("https://kapi.kakao.com/v2/user/me", {
+        let userData = await axios.get("https://kapi.kakao.com/v2/user/me", {
             headers: {
                 Authorization: `Bearer ${kakao_token}`,
             },
@@ -47,6 +47,10 @@ router.post("/login", async (req, res) => {
             nickName: userData.data.kakao_account.profile.nickname,
             profile: userData.data.kakao_account.profile_image,
         };
+
+        if (userInfo.profile === undefined) {
+            userInfo.profile = 0;
+        }
 
         let checkUser = await mysql.query(`SELECT id, email FROM ${schema.COMMON}.user WHERE email = ?;`, [userInfo.email]);
 
@@ -166,6 +170,64 @@ router.post("/login", async (req, res) => {
         res.failResponse("ServerError");
         return;
     }
+});
+
+const processValidator = [body("collect").isInt().isIn([0, 1]).optional(), body("agreement").isInt().isIn([0, 1]).optional(), validationHandler.handle];
+
+router.put("/process", jwtVerify, processValidator, async (req, res) => {
+    try {
+        let userInfo = req.userInfo;
+        let reqData = matchedData(req);
+
+        let userVerify = await mysql.query(`SELECT id FROM ${schema.COMMON}.user WHERE id = ?;`, [userInfo.id]);
+
+        if (!userVerify.success) {
+            res.failResponse("QueryError");
+            return;
+        }
+
+        if (userVerify.rows.length === 0) {
+            res.failResponse("ParameterInvalid");
+            return;
+        }
+        let query = ''
+        let queryParams = [];
+
+        query = `UPDATE ${schema.COMMON}.user_flag SET `;
+        if (reqData.collect != undefined && reqData.agreement != undefined) {
+            res.failResponse("ParameterInvalid");
+            return;
+        } else if (reqData.agreement == 1) {
+            query += `agreement = ? `;
+            queryParams.push(reqData.agreement);
+        } else if (reqData.collect == 1) {
+            query += `collect = ? `;
+            queryParams.push(reqData.collect);
+        }
+
+        query += `WHERE uid = ?;`;
+        queryParams.push(userInfo.id);
+
+        let updateFlag = await mysql.execute(query, queryParams);
+
+        if (!updateFlag.success) {
+            res.failResponse("QueryError");
+            return;
+        }
+
+        if (updateFlag.affectedRows === 0) {
+            res.failResponse("AffectedEmpty");
+            return;
+        }
+
+        res.successResponse();
+
+    } catch (exception) {
+        log.error(exception);
+        res.failResponse("ServerError");
+        return;
+    }
+
 });
 
 module.exports = router;

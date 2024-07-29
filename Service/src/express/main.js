@@ -142,13 +142,18 @@ express._printFailLog = function (req, res, dataTable) {
  */
 express.validateTimestamp = function (req, res, next) {
     let timestamp = Number(req.method === "GET" ? req.query.timestamp : req.body.timestamp);
+    let currentTimestamp = util.getCurrentTimestamp();
+
+    console.log("Received timestamp:", timestamp);
+    console.log("Current timestamp:", currentTimestamp);
+    console.log("Timestamp difference:", Math.abs(timestamp - currentTimestamp));
 
     if (!timestamp || !Number.isInteger(timestamp)) {
         res.failResponse("ParameterInvalid");
         return;
     }
 
-    if (Math.abs(timestamp - util.getCurrentTimestamp()) > 10) {
+    if (Math.abs(timestamp - util.getCurrentTimestamp()) > 20) {
         res.failResponse("TimestampInvalid");
         return;
     }
