@@ -230,4 +230,56 @@ router.put("/process", jwtVerify, processValidator, async (req, res) => {
 
 });
 
+router.post("/token", jwtVerify, async (req, res) => {
+    try {
+        let userInfo = req.userInfo;
+
+        let re_token = util.extractionToken(req.headers.authorization);
+
+        let userVerify = await mysql.query(`SELECT id, email FROM ${schema.COMMON}.user WHERE id = ?;`, [userInfo.id]);
+
+        if (!userVerify.success) {
+            res.failResponse("QueryError");
+            return;
+        }
+
+        let tokenVerify = await mysql.query(`SELECT token FROM ${schema.COMMON}.verification WHERE uid = ?;`, [userInfo.id]);
+
+        if (!tokenVerify.success) {
+            res.failResponse("QueryError");
+            return;
+        }
+
+        if (tokenVerify.rows[0].token !== re_token || tokenVerify.rows.length === 0) {
+            res.failResponse("AuthorizationInvalid");
+            return;
+        }
+
+        let token = util.createToken(userInfo);
+
+        let tokenUpdate = await mysql.execute(`UPDATE ${schema.COMMON}.verification SET token = ? WHERE uid = ?;`, [token.refreshToken, userInfo.id]);
+
+        if (!tokenUpdate.success) {
+            res.failResponse("QueryError");
+            return;
+        }
+
+        if (tokenUpdate.affectedRows === 0) {
+            res.failResponse("AffectedEmpty");
+            return;
+        }
+
+        let data = {
+            access_token: token.accessToken,
+            refresh_token: token.refreshToken,
+        }
+
+        res.successResponse(data);
+    } catch (exception) {
+        log.error(exception);
+        res.failResponse("ServerError");
+        return;
+    }
+
+});
 module.exports = router;
