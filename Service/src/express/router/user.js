@@ -359,4 +359,104 @@ router.get("/search", jwtVerify, async (req, res) => {
     }
 });
 
+const editValidator = [body("gender").isInt().isIn([1, 2]).optional(), body("age").isInt().optional(), body("nickName").isString().optional(), body("weight").isFloat({ min: 0, max: 300 }).optional(), body("height").isFloat({ min: 0, max: 300 }).optional(), body("activemass").isInt().isIn([1, 2, 3, 4, 5]).optional(), validationHandler.handle];
+
+router.put("/edit", jwtVerify, editValidator, async (req, res) => {
+    try {
+        let userInfo = req.userInfo;
+        let reqData = matchedData(req);
+
+        let userVerify = await mysql.query(`SELECT * FROM ${schema.COMMON}.user WHERE id = ?;`, [userInfo.id]);
+
+        if (!userVerify.success) {
+            res.failResponse("QueryError");
+            return;
+        }
+
+        if (userVerify.rows.length === 0) {
+            res.failResponse("UserNotFound");
+            return;
+        }
+
+
+        let reqDataLength = Object.keys(reqData).length;
+
+        if (!reqData || reqDataLength === 0) {
+            res.failResponse("ParameterInvalid");
+            return;
+        }
+
+        let query = `UPDATE ${schema.COMMON}.user SET`;
+        let queryParams = [];
+
+        for (let v in reqData) {
+            if (v === 'nickName') {
+                query += ` nickname = ?,`
+            } else {
+                query += ` ${v} = ?,`;
+            }
+            queryParams.push(reqData[v]);
+        }
+
+        let weight, height, gender, age, activemass;
+
+        if (!reqData.weight) {
+            weight = userVerify.rows[0].weight;
+        } else {
+            weight = reqData.weight;
+        }
+
+        if (!reqData.height) {
+            height = userVerify.rows[0].height;
+        } else {
+            height = reqData.height;
+        }
+
+        if (!reqData.gender) {
+            gender = userVerify.rows[0].gender;
+        } else {
+            gender = reqData.gender;
+        }
+
+        if (!reqData.age) {
+            age = userVerify.rows[0].age;
+        } else {
+            age = reqData.age;
+        }
+
+        if (!reqData.activemass) {
+            activemass = userVerify.rows[0].activemass;
+        } else {
+            activemass = reqData.activemass;
+        }
+
+        let bmi = util.userBmi(weight, height);
+        let bmr = util.userBmr(gender, weight, height, age);
+        let amr = util.userAmr(bmr, activemass);
+
+        query += ` bmi = ?, bmr = ?, amr = ? WHERE id = ?;`;
+        queryParams.push(bmi, bmr, amr, userInfo.id);
+
+
+        let editInfo = await mysql.execute(query, queryParams);
+
+        if (!editInfo.success) {
+            res.failResponse("QueryError");
+            return;
+        }
+
+        if (editInfo.affectedRows === 0) {
+            res.failResponse("AffectedEmpty");
+            return;
+        }
+
+        res.successResponse();
+    } catch (exception) {
+        console.log(exception);
+        log.error(exception);
+        res.failResponse("ServerError");
+        return;
+    }
+});
+
 module.exports = router;
