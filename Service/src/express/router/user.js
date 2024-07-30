@@ -187,7 +187,7 @@ router.put("/process", jwtVerify, processValidator, async (req, res) => {
         }
 
         if (userVerify.rows.length === 0) {
-            res.failResponse("ParameterInvalid");
+            res.failResponse("UserNotFound");
             return;
         }
         let query = ''
@@ -197,10 +197,10 @@ router.put("/process", jwtVerify, processValidator, async (req, res) => {
         if (reqData.collect != undefined && reqData.agreement != undefined) {
             res.failResponse("ParameterInvalid");
             return;
-        } else if (reqData.agreement == 1) {
+        } else if (reqData.agreement == 1 || reqData.agreement == 0) {
             query += `agreement = ? `;
             queryParams.push(reqData.agreement);
-        } else if (reqData.collect == 1) {
+        } else if (reqData.collect == 1 || reqData.collect == 0) {
             query += `collect = ? `;
             queryParams.push(reqData.collect);
         }
@@ -243,6 +243,11 @@ router.post("/token", jwtVerify, async (req, res) => {
             return;
         }
 
+        if (userVerify.rows.length === 0) {
+            res.failResponse("UserNotFound");
+            return;
+        }
+
         let tokenVerify = await mysql.query(`SELECT token FROM ${schema.COMMON}.verification WHERE uid = ?;`, [userInfo.id]);
 
         if (!tokenVerify.success) {
@@ -282,4 +287,52 @@ router.post("/token", jwtVerify, async (req, res) => {
     }
 
 });
+
+const addValidator = [body("gender").notEmpty().isInt().isIn([1, 2]), body("age").notEmpty().isInt(), body("weight").notEmpty().isFloat({ min: 0, max: 300 }), body("height").notEmpty().isFloat({ min: 0, max: 300 }), body("activemass").notEmpty().isInt().isIn([1, 2, 3, 4, 5]), validationHandler.handle];
+
+router.post("/add", jwtVerify, addValidator, async (req, res) => {
+    try {
+        let userInfo = req.userInfo;
+        let reqData = matchedData(req);
+
+        let userVerify = await mysql.query(`SELECT id, email FROM ${schema.COMMON}.user WHERE id = ?;`, [userInfo.id]);
+
+        if (!userVerify.success) {
+            res.failResponse("QueryError");
+            return;
+        }
+
+        if (userVerify.rows.length === 0) {
+            res.failResponse("UserNotFound");
+            return;
+        }
+
+        let bmi = util.userBmi(reqData.weight, reqData.height);
+        let bmr = util.userBmr(reqData.gender, reqData.weight, reqData.height, reqData.age);
+        let amr = util.userAmr(bmr, reqData.activemass);
+
+        let query = `UPDATE ${schema.COMMON}.user SET gender = ?, age = ?, weight = ?, height = ?, bmi = ?, bmr = ?, amr = ?, activemass = ? WHERE id = ?;`;
+        let queryParams = [reqData.gender, reqData.age, reqData.weight, reqData.height, bmi, bmr, amr, reqData.activemass, userInfo.id];
+
+        let dataInput = await mysql.execute(query, queryParams);
+
+        if (!dataInput.success) {
+            res.failResponse("QueryError");
+            return;
+        }
+
+        if (dataInput.affectedRows === 0) {
+            res.failResponse("AffectedEmpty");
+            return;
+        }
+
+        res.successResponse();
+    } catch (exception) {
+        console.log(exception);
+        log.error(exception);
+        res.failResponse("ServerError");
+        return;
+    }
+
+})
 module.exports = router;

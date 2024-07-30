@@ -111,6 +111,54 @@ util.affectedValidator = function (result, res) {
     return true;
 };
 
+util.userBmi = function (weight, height) {
+    height = height / 100;
+
+    let bmi = parseFloat((weight / (height * height)).toFixed(2));
+
+    return bmi;
+};
+
+util.userBmr = function (gender, weight, height, age) {
+    let bmr = (10 * weight) + (6.25 * height) - (5 * age);
+
+    if (Number(gender) === 1) {
+        bmr += 5;
+    } else if (Number(gender) === 2) {
+        bmr -= 161;
+    }
+
+    bmr = parseFloat(bmr.toFixed(2));
+
+    return bmr;
+};
+
+util.userAmr = function (bmr, activemass) {
+
+    let multi;
+    switch (Number(activemass)) {
+        case 1:
+            multi = 1.2;
+            break;
+        case 2:
+            multi = 1.375;
+            break;
+        case 3:
+            multi = 1.55;
+            break;
+        case 4:
+            multi = 1.725;
+            break;
+        case 5:
+            multi = 1.9;
+            break;
+    }
+
+    let amr = parseFloat((bmr * multi).toFixed(2));
+
+    return amr;
+}
+
 JSON.emptyObject = JSON.stringify({});
 JSON.emptyArray = JSON.stringify([]);
 
