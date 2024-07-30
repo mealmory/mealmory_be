@@ -328,11 +328,35 @@ router.post("/add", jwtVerify, addValidator, async (req, res) => {
 
         res.successResponse();
     } catch (exception) {
-        console.log(exception);
         log.error(exception);
         res.failResponse("ServerError");
         return;
     }
 
-})
+});
+
+router.get("/search", jwtVerify, async (req, res) => {
+    try {
+        let userInfo = req.userInfo;
+
+        let userVerify = await mysql.query(`SELECT id, email, nickname AS nickName, gender, age, weight, height, bmi, bmr, amr, activemass, profile FROM ${schema.COMMON}.user WHERE id = ?;`, [userInfo.id]);
+
+        if (!userVerify.success) {
+            res.failResponse("QueryError");
+            return;
+        }
+
+        if (userVerify.rows.length === 0) {
+            res.failResponse("UserNotFound");
+            return;
+        }
+
+        res.successResponse(userVerify.rows[0]);
+    } catch (exception) {
+        log.error(exception);
+        res.failResponse("ServerError");
+        return;
+    }
+});
+
 module.exports = router;
