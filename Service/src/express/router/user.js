@@ -228,7 +228,7 @@ router.put("/process", jwtVerify, processValidator, async (req, res) => {
     }
 });
 
-router.post("/token", jwtVerify, async (req, res) => {
+router.post("/token", refreshVerify, async (req, res) => {
     try {
         let userInfo = req.userInfo;
 
