@@ -15,10 +15,10 @@ errorCode.errors = {
     AuthorizationFailed: { code: 1005, message: "Authorization error" },
     AuthorizationInvalid: { code: 1006, message: "Authorization error" },
     AuthorizationExpired: { code: 1007, message: "Authorization error" },
-    UserNotFound: { code: 1008, message: "User not found" },
 
     NotFound: { code: 2000, message: "Not found" },
     ServerError: { code: 2001, message: "Server error" },
+    UserNotFound: { code: 2002, message: "User not found" },
 
     QueryError: { code: 3000, message: "Database error" },
     AffectedEmpty: { code: 3001, message: "Database error" },

@@ -190,7 +190,7 @@ router.put("/process", jwtVerify, processValidator, async (req, res) => {
             res.failResponse("UserNotFound");
             return;
         }
-        let query = ''
+        let query = "";
         let queryParams = [];
 
         query = `UPDATE ${schema.COMMON}.user_flag SET `;
@@ -221,13 +221,11 @@ router.put("/process", jwtVerify, processValidator, async (req, res) => {
         }
 
         res.successResponse();
-
     } catch (exception) {
         log.error(exception);
         res.failResponse("ServerError");
         return;
     }
-
 });
 
 router.post("/token", jwtVerify, async (req, res) => {
@@ -277,7 +275,7 @@ router.post("/token", jwtVerify, async (req, res) => {
         let data = {
             access_token: token.accessToken,
             refresh_token: token.refreshToken,
-        }
+        };
 
         res.successResponse(data);
     } catch (exception) {
@@ -285,12 +283,18 @@ router.post("/token", jwtVerify, async (req, res) => {
         res.failResponse("ServerError");
         return;
     }
-
 });
 
-const addValidator = [body("gender").notEmpty().isInt().isIn([1, 2]), body("age").notEmpty().isInt(), body("weight").notEmpty().isFloat({ min: 0, max: 300 }), body("height").notEmpty().isFloat({ min: 0, max: 300 }), body("activemass").notEmpty().isInt().isIn([1, 2, 3, 4, 5]), validationHandler.handle];
+const addValidator = [
+    body("gender").notEmpty().isInt().isIn([1, 2]),
+    body("age").notEmpty().isInt(),
+    body("weight").notEmpty().isFloat({ min: 0, max: 300 }),
+    body("height").notEmpty().isFloat({ min: 0, max: 300 }),
+    body("activemass").notEmpty().isInt().isIn([1, 2, 3, 4, 5]),
+    validationHandler.handle,
+];
 
-router.post("/add", jwtVerify, addValidator, async (req, res) => {
+router.post("/info/add", jwtVerify, addValidator, async (req, res) => {
     try {
         let userInfo = req.userInfo;
         let reqData = matchedData(req);
@@ -332,10 +336,9 @@ router.post("/add", jwtVerify, addValidator, async (req, res) => {
         res.failResponse("ServerError");
         return;
     }
-
 });
 
-router.get("/search", jwtVerify, async (req, res) => {
+router.get("/info/search", jwtVerify, async (req, res) => {
     try {
         let userInfo = req.userInfo;
 
@@ -359,9 +362,17 @@ router.get("/search", jwtVerify, async (req, res) => {
     }
 });
 
-const editValidator = [body("gender").isInt().isIn([1, 2]).optional(), body("age").isInt().optional(), body("nickName").isString().optional(), body("weight").isFloat({ min: 0, max: 300 }).optional(), body("height").isFloat({ min: 0, max: 300 }).optional(), body("activemass").isInt().isIn([1, 2, 3, 4, 5]).optional(), validationHandler.handle];
+const editValidator = [
+    body("gender").isInt().isIn([1, 2]).optional(),
+    body("age").isInt().optional(),
+    body("nickName").isString().optional(),
+    body("weight").isFloat({ min: 0, max: 300 }).optional(),
+    body("height").isFloat({ min: 0, max: 300 }).optional(),
+    body("activemass").isInt().isIn([1, 2, 3, 4, 5]).optional(),
+    validationHandler.handle,
+];
 
-router.put("/edit", jwtVerify, editValidator, async (req, res) => {
+router.put("/info/edit", jwtVerify, editValidator, async (req, res) => {
     try {
         let userInfo = req.userInfo;
         let reqData = matchedData(req);
@@ -378,7 +389,6 @@ router.put("/edit", jwtVerify, editValidator, async (req, res) => {
             return;
         }
 
-
         let reqDataLength = Object.keys(reqData).length;
 
         if (!reqData || reqDataLength === 0) {
@@ -390,8 +400,8 @@ router.put("/edit", jwtVerify, editValidator, async (req, res) => {
         let queryParams = [];
 
         for (let v in reqData) {
-            if (v === 'nickName') {
-                query += ` nickname = ?,`
+            if (v === "nickName") {
+                query += ` nickname = ?,`;
             } else {
                 query += ` ${v} = ?,`;
             }
@@ -437,7 +447,6 @@ router.put("/edit", jwtVerify, editValidator, async (req, res) => {
         query += ` bmi = ?, bmr = ?, amr = ? WHERE id = ?;`;
         queryParams.push(bmi, bmr, amr, userInfo.id);
 
-
         let editInfo = await mysql.execute(query, queryParams);
 
         if (!editInfo.success) {
@@ -457,6 +466,46 @@ router.put("/edit", jwtVerify, editValidator, async (req, res) => {
         res.failResponse("ServerError");
         return;
     }
+});
+
+router.delete("/info/delete", jwtVerify, async (req, res) => {
+    try {
+        let userInfo = req.userInfo;
+
+        let userVerify = await mysql.query(`SELECT id, email FROM ${schema.COMMON}.user WHERE id = ?;`, [userInfo.id]);
+
+        if (!userVerify.success) {
+            res.failResponse("QueryError");
+            return;
+        }
+
+        if (userVerify.rows.length === 0) {
+            res.failResponse("UserNotFound");
+            return;
+        }
+
+        let result = await mysql.transactionStatement(async (method) => {
+            let deleteUser = await method.execute(`DELETE FROM ${schema.COMMON}.user WHERE id = ?;`, [userInfo.id]);
+
+            if (!deleteUser.success) {
+                return mysql.TRANSACTION.ROLLBACK;
+            }
+
+            return mysql.TRANSACTION.COMMIT;
+        });
+
+        if (!result.success || !result.commit) {
+            res.failResponse("TransactionError");
+            return;
+        }
+
+        res.successResponse();
+    } catch (exception) {
+        log.error(exception);
+        res.failResponse("ServerError");
+        return;
+    }
+
 });
 
 module.exports = router;
