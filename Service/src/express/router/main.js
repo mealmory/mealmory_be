@@ -13,11 +13,11 @@ const { matchedData, validationResult, body, query } = require("express-validato
 const validationHandler = require("../validationHandler");
 const schema = config.database.schema;
 
-router("/home", jwtVerify, async (req, res) => {
+router.get("/home", jwtVerify, async (req, res) => {
     try {
         let userInfo = req.userInfo;
 
-        let userVerify = await mysql.query(`SELEC id, email FROM ${schema.COMMON}.user WHERE id = ?;`, [userInfo.id]);
+        let userVerify = await mysql.query(`SELECT id, email FROM ${schema.COMMON}.user WHERE id = ?;`, [userInfo.id]);
 
         if (!userVerify.success) {
             res.failResponse("QueryError");
@@ -31,7 +31,7 @@ router("/home", jwtVerify, async (req, res) => {
 
         let userData = await mysql.query(
             `
-            SELECT u.id, u.gender, u.age, u.bmi, u.bmr, u.amr, p.total, DATE_FORMAT(u.reg_date, '%Y-%m-%d') AS date 
+            SELECT u.id, u.gender, u.age, u.height, u.weight, u.bmi, u.bmr, u.amr, p.total, DATE_FORMAT(u.reg_date, '%Y-%m-%d') AS date 
             FROM ${schema.COMMON}.user u
             LEFT OUTER JOIN ${schema.COMMON}.plan p
             ON u.id = p.uid
@@ -42,15 +42,16 @@ router("/home", jwtVerify, async (req, res) => {
             res.failResponse("QueryError");
             return;
         }
-
         let user = {}
 
-        if (userData.rows[0].total = null) {
+        if (userData.rows[0].total = String(null)) {
             user.total = 0
         } else {
             user.total = userData.rows[0].total;
         }
 
+        user.height = userData.rows[0].height;
+        user.weight = userData.rows[0].weight;
         user.bmi = userData.rows[0].bmi;
         user.bmr = userData.rows[0].bmr;
         user.amr = userData.rows[0].amr;
@@ -75,9 +76,9 @@ router("/home", jwtVerify, async (req, res) => {
 
         average.bmi = avgData.rows[0].bmi;
         average.bmr = avgData.rows[0].bmr;
-        average.height = avgData.rows[0].hegiht;
+        average.height = avgData.rows[0].height;
         average.weight = avgData.rows[0].weight;
-
+        console.log(average);
         let data = {};
 
         data.avg = average;
@@ -87,6 +88,7 @@ router("/home", jwtVerify, async (req, res) => {
         res.successResponse(data);
 
     } catch (exception) {
+        console.log(exception);
         log.error(exception);
         res.failResponse("ServerError");
         return;

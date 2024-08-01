@@ -13,6 +13,7 @@ const cors = require("cors");
 
 // router 파일로드 작성 위치
 const userRouter = require("./router/user");
+const mainRouter = require("./router/main");
 
 express.init = function () {
     return new Promise(async (resolve, reject) => {
@@ -82,6 +83,7 @@ express.init = function () {
             // router 루트 경로 설정 지점
             // TODO: 순환 하여 router 파일읽어오는 기능 추가
             webServer.use("/api/user", userRouter);
+            webServer.use("/api/main", mainRouter);
 
             let routers = engine.Router();
 
