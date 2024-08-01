@@ -505,7 +505,6 @@ router.delete("/info/delete", jwtVerify, async (req, res) => {
         res.failResponse("ServerError");
         return;
     }
-
 });
 
 module.exports = router;

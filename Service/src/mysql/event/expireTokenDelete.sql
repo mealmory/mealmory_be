@@ -4,4 +4,4 @@ ON SCHEDULE
 	EVERY 1 DAY
 	STARTS TIMESTAMP(CONCAT(CURRENT_DATE, ' 00:00:00'))
 DO
-	DELETE FROM mealmory.verification WHERE exp_date < NOW();
+	DELETE FROM mealmory.verification WHERE exp_date < NOW(); 

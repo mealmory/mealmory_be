@@ -14,6 +14,7 @@ const cors = require("cors");
 // router 파일로드 작성 위치
 const userRouter = require("./router/user");
 const mainRouter = require("./router/main");
+const mealRouter = require("./router/meal");
 
 express.init = function () {
     return new Promise(async (resolve, reject) => {
@@ -84,6 +85,7 @@ express.init = function () {
             // TODO: 순환 하여 router 파일읽어오는 기능 추가
             webServer.use("/api/user", userRouter);
             webServer.use("/api/main", mainRouter);
+            webServer.use("api/meal", mealRouter);
 
             let routers = engine.Router();
 

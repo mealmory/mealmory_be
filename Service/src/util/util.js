@@ -120,7 +120,7 @@ util.userBmi = function (weight, height) {
 };
 
 util.userBmr = function (gender, weight, height, age) {
-    let bmr = (10 * weight) + (6.25 * height) - (5 * age);
+    let bmr = 10 * weight + 6.25 * height - 5 * age;
 
     if (Number(gender) === 1) {
         bmr += 5;
@@ -134,7 +134,6 @@ util.userBmr = function (gender, weight, height, age) {
 };
 
 util.userAmr = function (bmr, activemass) {
-
     let multi;
     switch (Number(activemass)) {
         case 1:
@@ -157,7 +156,7 @@ util.userAmr = function (bmr, activemass) {
     let amr = parseFloat((bmr * multi).toFixed(2));
 
     return amr;
-}
+};
 
 JSON.emptyObject = JSON.stringify({});
 JSON.emptyArray = JSON.stringify([]);
