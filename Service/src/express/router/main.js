@@ -99,6 +99,7 @@ router.get("/home", jwtVerify, async (req, res) => {
 const testValidator = [body("menuList").notEmpty(), validationHandler.handle];
 
 router.post("/test", testValidator, async (req, res) => {
+    let reqData = matchedData(req);
     let result = await mysql.transactionStatement(async (method) => {
         // logic
         // menu 마다 did, cid 검증
@@ -107,12 +108,12 @@ router.post("/test", testValidator, async (req, res) => {
         // 이후 plan_spec 데이터 조작
         // plan_spec insert
 
-        let getDid = await method.query(`SELECT id FROM ${schema.FDATA}.division;`);
+        let getDid = await method.query(`SELECT id FROM ${schema.DATA}.division;`);
         if (!getDid.success) {
             return mysql.TRANSACTION.ROLLBACK;
         }
 
-        let getCid = await method.query(`SELECT id FROM ${schema.FDATA}.category;`);
+        let getCid = await method.query(`SELECT id FROM ${schema.DATA}.category;`);
         if (!getCid.success) {
             return mysql.TRANSACTION.ROLLBACK;
         }
@@ -127,10 +128,10 @@ router.post("/test", testValidator, async (req, res) => {
             cid.push(getCid.rows[v].id);
         }
 
-        let menuList = reqData.menuList;
+        let menuList = JSON.parse(reqData.menuList);
 
         for (let v in menuList) {
-            if (menuList[v].did === String(4)) {
+            if (menuList[v].did === 4) {
                 continue;
             }
 
