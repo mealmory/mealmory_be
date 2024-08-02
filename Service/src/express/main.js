@@ -85,7 +85,7 @@ express.init = function () {
             // TODO: 순환 하여 router 파일읽어오는 기능 추가
             webServer.use("/api/user", userRouter);
             webServer.use("/api/main", mainRouter);
-            webServer.use("api/meal", mealRouter);
+            webServer.use("/api/meal", mealRouter);
 
             let routers = engine.Router();
 

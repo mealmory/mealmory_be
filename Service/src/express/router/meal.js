@@ -16,18 +16,25 @@ const schema = config.database.schema;
 const addValidator = [
     body("type").notEmpty().isInt().isIn([1, 2, 3, 4, 5]),
     body("time").notEmpty().isString(),
-    body("menuList").notEmpty().isArray(),
-    body("menuList.*").notEmpty().isObject(),
-    body("menuList.*.menu").notEmpty().isString(),
-    body("menuList.*.calory").notEmpty().isFloat(),
-    body("menuList.*.amount").notEmpty().isFloat(),
-    body("menuList.*.unit").notEmpty().isInt().isIn([0, 1]),
-    body("menuList.*.did").notEmpty().isInt(),
-    body("menuList.*.cid").notEmpty().isInt(),
+    body("menuList").notEmpty(),
+    // body("menuList").notEmpty().isArray(),
+    // body("menuList.*").notEmpty().isObject(),
+    // body("menuList.*.menu").notEmpty().isString(),
+    // body("menuList.*.kcal").notEmpty().isFloat(),
+    // body("menuList.*.amount").notEmpty().isFloat(),
+    // body("menuList.*.unit").notEmpty().isInt().isIn([0, 1]),
+    // body("menuList.*.did").notEmpty().isInt(),
+    // body("menuList.*.cid").notEmpty().isInt(),
+    // body("menuList.*.fid").notEmpty().isInt(),
+    // body("menuList.*.menu_spec").notEmpty().isObject(),
+    // body("menuList.*.menu_spec.carbs").notEmpty().isFloat(),
+    // body("menuList.*.menu_spec.protein").notEmpty().isFloat(),
+    // body("menuList.*.menu_spec.fat").notEmpty().isFloat(),
+    body("total").notEmpty().isFloat(),
     validationHandler.handle,
 ];
 
-router.post("/add", jwtVerify, async (req, res) => {
+router.post("/add", jwtVerify, addValidator, async (req, res) => {
     try {
         let userInfo = req.userInfo;
         let reqData = matchedData(req);
@@ -45,19 +52,12 @@ router.post("/add", jwtVerify, async (req, res) => {
         }
 
         let result = await mysql.transactionStatement(async (method) => {
-            // logic
-            // menu 마다 did, cid 검증
-            // plan T에 insert 후
-            // menu 마다 data 검색
-            // 이후 plan_spec 데이터 조작
-            // plan_spec insert
-
-            let getDid = await method.query(`SELECT id FROM ${schema.FDATA}.division;`);
+            let getDid = await method.query(`SELECT id FROM ${schema.DATA}.division;`);
             if (!getDid.success) {
                 return mysql.TRANSACTION.ROLLBACK;
             }
 
-            let getCid = await method.query(`SELECT id FROM ${schema.FDATA}.category;`);
+            let getCid = await method.query(`SELECT id FROM ${schema.DATA}.category;`);
             if (!getCid.success) {
                 return mysql.TRANSACTION.ROLLBACK;
             }
@@ -71,21 +71,68 @@ router.post("/add", jwtVerify, async (req, res) => {
             for (let v in getCid.rows) {
                 cid.push(getCid.rows[v].id);
             }
+            let menuList = [];
+            let parseList = JSON.parse(reqData.menuList);
 
-            let menuList = reqData.menuList;
-
+            for (let i = 0; i < parseList.length; i++) {
+                let newObj = new Object();
+                (newObj.menu = parseList[i].menu), (newObj.kcal = parseList[i].kcal), (newObj.amount = parseList[i].amount), (newObj.unit = parseList[i].unit), (newObj.did = parseList[i].did), (newObj.cid = parseList[i].cid), (newObj.fid = parseList[i].fid), menuList.push(newObj);
+            }
+            console.log(parseList.length);
             for (let v in menuList) {
-                if (menuList[v].did === String(4)) {
+                if (menuList[v].did === 4) {
                     continue;
                 }
 
                 if (!did.includes(menuList[v].did) || !cid.includes(menuList[v].cid)) {
-                    await mysql.TRANSACTION.ROLLBACK;
-                    return res.failResponse("ParameterInvalid");
+                    return mysql.TRANSACTION.ROLLBACK;
                 }
             }
+
+            let menu_spec = [];
+
+            for (let v in parseList) {
+                menu_spec.push(parseList[v].menu_spec);
+            }
+            let inputPlan = await method.execute(
+                `
+                INSERT INTO ${schema.COMMON}.plan (uid, type, list, total, time) VALUES (?, ?, ?, ?, ?);
+                `,
+                [userInfo.id, reqData.type, menuList, reqData.total, reqData.time],
+            );
+
+            if (!inputPlan.success) {
+                return mysql.TRANSACTION.ROLLBACK;
+            }
+
+            let getPid = await method.query(`SELECT id FROM ${schema.COMMON}.plan WHERE uid = ? AND time = ?;`, [userInfo.id, reqData.time]);
+
+            if (!getPid.success || getPid.rows.length === 0) {
+                return mysql.TRANSACTION.ROLLBACK;
+            }
+
+            let inputPlanSpec = await method.execute(
+                `
+                INSERT INTO ${schema.COMMON}.plan_spec (uid, pid, cpf) VALUES (?, ?, ?);
+                `,
+                [userInfo.id, getPid.rows[0].id, menu_spec],
+            );
+
+            if (!inputPlanSpec.success) {
+                return mysql.TRANSACTION.ROLLBACK;
+            }
+
+            return mysql.TRANSACTION.COMMIT;
         });
+
+        if (!result.success || !result.commit) {
+            res.failResponse("TransactionError");
+            return;
+        }
+
+        res.successResponse();
     } catch (exception) {
+        console.log(exception);
         log.error(exception);
         res.failResponse("ServerError");
         return;

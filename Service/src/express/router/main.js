@@ -96,51 +96,8 @@ router.get("/home", jwtVerify, async (req, res) => {
     }
 });
 
-const testValidator = [body("menuList").notEmpty(), validationHandler.handle];
+const testValidator = [];
 
-router.post("/test", testValidator, async (req, res) => {
-    let reqData = matchedData(req);
-    let result = await mysql.transactionStatement(async (method) => {
-        // logic
-        // menu 마다 did, cid 검증
-        // plan T에 insert 후
-        // menu 마다 data 검색
-        // 이후 plan_spec 데이터 조작
-        // plan_spec insert
-
-        let getDid = await method.query(`SELECT id FROM ${schema.DATA}.division;`);
-        if (!getDid.success) {
-            return mysql.TRANSACTION.ROLLBACK;
-        }
-
-        let getCid = await method.query(`SELECT id FROM ${schema.DATA}.category;`);
-        if (!getCid.success) {
-            return mysql.TRANSACTION.ROLLBACK;
-        }
-
-        let did = [];
-        let cid = [];
-
-        for (let v in getDid.rows) {
-            did.push(getDid.rows[v].id);
-        }
-        for (let v in getCid.rows) {
-            cid.push(getCid.rows[v].id);
-        }
-
-        let menuList = JSON.parse(reqData.menuList);
-
-        for (let v in menuList) {
-            if (menuList[v].did === 4) {
-                continue;
-            }
-
-            if (!did.includes(menuList[v].did) || !cid.includes(menuList[v].cid)) {
-                mysql.TRANSACTION.ROLLBACK;
-                return res.failResponse("ParameterInvalid");
-            }
-        }
-    });
-});
+router.post("/test", testValidator, async (req, res) => {});
 
 module.exports = router;
