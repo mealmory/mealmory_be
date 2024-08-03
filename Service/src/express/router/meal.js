@@ -12,24 +12,24 @@ const { jwtVerify } = require("../../util/verify");
 const { matchedData, validationResult, body, query } = require("express-validator");
 const validationHandler = require("../validationHandler");
 const schema = config.database.schema;
+const moment = require("moment-timezone");
 
 const addValidator = [
     body("type").notEmpty().isInt().isIn([1, 2, 3, 4, 5]),
     body("time").notEmpty().isString(),
     body("menuList").notEmpty(),
-    // body("menuList").notEmpty().isArray(),
-    // body("menuList.*").notEmpty().isObject(),
-    // body("menuList.*.menu").notEmpty().isString(),
-    // body("menuList.*.kcal").notEmpty().isFloat(),
-    // body("menuList.*.amount").notEmpty().isFloat(),
-    // body("menuList.*.unit").notEmpty().isInt().isIn([0, 1]),
-    // body("menuList.*.did").notEmpty().isInt(),
-    // body("menuList.*.cid").notEmpty().isInt(),
-    // body("menuList.*.fid").notEmpty().isInt(),
-    // body("menuList.*.menu_spec").notEmpty().isObject(),
-    // body("menuList.*.menu_spec.carbs").notEmpty().isFloat(),
-    // body("menuList.*.menu_spec.protein").notEmpty().isFloat(),
-    // body("menuList.*.menu_spec.fat").notEmpty().isFloat(),
+    body("menuList.*").notEmpty().isObject(),
+    body("menuList.*.menu").notEmpty().isString(),
+    body("menuList.*.kcal").notEmpty().isFloat(),
+    body("menuList.*.amount").notEmpty().isFloat(),
+    body("menuList.*.unit").notEmpty().isInt().isIn([0, 1]),
+    body("menuList.*.did").notEmpty().isInt(),
+    body("menuList.*.cid").notEmpty().isInt(),
+    body("menuList.*.fid").notEmpty().isInt(),
+    body("menuList.*.menu_spec").notEmpty().isObject(),
+    body("menuList.*.menu_spec.carbs").notEmpty().isFloat(),
+    body("menuList.*.menu_spec.protein").notEmpty().isFloat(),
+    body("menuList.*.menu_spec.fat").notEmpty().isFloat(),
     body("total").notEmpty().isFloat(),
     validationHandler.handle,
 ];
@@ -50,8 +50,9 @@ router.post("/add", jwtVerify, addValidator, async (req, res) => {
             res.failResponse("UserNotFound");
             return;
         }
+        let date = moment(reqData.time, "YYYY-MM-DD").format("YYYY-MM-DD");
 
-        let planVerify = await mysql.query(`SELECT type FROM ${schema.COMMON}.plan WHERE uid = ? AND type = ?;`, [userInfo.id, reqData.type]);
+        let planVerify = await mysql.query(`SELECT type FROM ${schema.COMMON}.plan WHERE uid = ? AND type = ? AND DATE(time) = ?;`, [userInfo.id, reqData.type, date]);
 
         if (!planVerify.success) {
             res.failResponse("QueryError");
@@ -64,7 +65,6 @@ router.post("/add", jwtVerify, addValidator, async (req, res) => {
         }
 
         let result = await mysql.transactionStatement(async (method) => {
-            // 입력한 foodData 의 검증을 위해 DB에 저장된 did, cid를 가져와 배열에 담음.
             let getIds = await method.query(
                 `
                 SELECT id FROM ${schema.DATA}.division;
@@ -149,6 +149,48 @@ router.post("/add", jwtVerify, addValidator, async (req, res) => {
         }
 
         res.successResponse();
+    } catch (exception) {
+        log.error(exception);
+        res.failResponse("ServerError");
+        return;
+    }
+});
+
+const searchValidator = [query("type").notEmpty().isInt().isIn([1, 2, 3]), query("time").notEmpty().isString()];
+
+router.get("/search", jwtVerify, searchValidator, async (req, res) => {
+    try {
+        let usreInfo = req.userInfo;
+        let reqData = matchedData(req);
+
+        let query = `SELECT id, type, time, total FROM ${schema.COMMON}.plan WHERE 1 = 1 AND uid = ? AND `;
+        let queryParams = [usreInfo.id];
+
+        let dateRange = util.rangeDate(reqData.time, reqData.type);
+
+        if (reqData.type == 1) {
+            query += `time = ? `;
+            queryParams.push(dateRange.start);
+        } else {
+            query += `time BETWEEN ? AND ? `;
+            queryParams.push(dateRange.start, dateRange.end);
+        }
+
+        query += `ORDER BY id ASC;`;
+
+        let getPlan = await mysql.query(query, queryParams);
+
+        if (!getPlan.success) {
+            res.failResponse("QueryError");
+            return;
+        }
+
+        if (getPlan.rows.length === 0) {
+            res.failResponse("MealPlanNull");
+            return;
+        }
+
+        res.successResponse(getPlan.rows);
     } catch (exception) {
         console.log(exception);
         log.error(exception);

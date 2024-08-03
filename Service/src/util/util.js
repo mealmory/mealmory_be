@@ -158,6 +158,32 @@ util.userAmr = function (bmr, activemass) {
     return amr;
 };
 
+util.rangeDate = function (dateStr, option) {
+    let date = moment(dateStr, "YYYY-MM-DD HH:mm:ss");
+
+    let range = {};
+    let start, end;
+
+    switch (Number(option)) {
+        case 1:
+            start = date.format("YYYY-MM-DD HH:mm:ss");
+            break;
+        case 2:
+            start = date.clone().startOf("week").day(0).format("YYYY-MM-DD HH:mm:ss");
+            end = date.clone().startOf("week").day(6).format("YYYY-MM-DD HH:mm:ss");
+            break;
+        case 3:
+            start = date.clone().startOf("month").format("YYYY-MM-DD HH:mm:ss");
+            end = date.clone().endOf("month").format("YYYY-MM-DD HH:mm:ss");
+            break;
+    }
+
+    range.start = start;
+    range.end = end;
+
+    return range;
+};
+
 JSON.emptyObject = JSON.stringify({});
 JSON.emptyArray = JSON.stringify([]);
 
