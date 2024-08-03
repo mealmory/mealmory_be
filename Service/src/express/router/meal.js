@@ -51,6 +51,18 @@ router.post("/add", jwtVerify, addValidator, async (req, res) => {
             return;
         }
 
+        let planVerify = await mysql.query(`SELECT type FROM ${schema.COMMON}.plan WHERE uid = ? AND type = ?;`, [userInfo.id, reqData.type]);
+
+        if (!planVerify.success) {
+            res.failResponse("QueryError");
+            return;
+        }
+
+        if (planVerify.rows.length !== 0 && planVerify.rows[0].type === Number(reqData.type)) {
+            res.failResponse("MealPlanDuplicate");
+            return;
+        }
+
         let result = await mysql.transactionStatement(async (method) => {
             // 입력한 foodData 의 검증을 위해 DB에 저장된 did, cid를 가져와 배열에 담음.
             let getIds = await method.query(

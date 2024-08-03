@@ -16,6 +16,7 @@ errorCode.errors = {
     AuthorizationInvalid: { code: 1006, message: "Authorization error" },
     AuthorizationExpired: { code: 1007, message: "Authorization error" },
     MealPlanNull: { code: 1008, message: "Meal plan null" },
+    MealPlanDuplicate: { code: 1009, message: "Meal plan duplicate" },
 
     NotFound: { code: 2000, message: "Not found" },
     ServerError: { code: 2001, message: "Server error" },
