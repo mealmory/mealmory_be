@@ -52,25 +52,31 @@ router.post("/add", jwtVerify, addValidator, async (req, res) => {
         }
 
         let result = await mysql.transactionStatement(async (method) => {
-            let getDid = await method.query(`SELECT id FROM ${schema.DATA}.division;`);
-            if (!getDid.success) {
-                return mysql.TRANSACTION.ROLLBACK;
-            }
+            // 입력한 foodData 의 검증을 위해 DB에 저장된 did, cid를 가져와 배열에 담음.
+            let getIds = await method.query(
+                `
+                SELECT id FROM ${schema.DATA}.division;
+                SELECT id FROM ${schema.DATA}.category;
+                `,
+            );
 
-            let getCid = await method.query(`SELECT id FROM ${schema.DATA}.category;`);
-            if (!getCid.success) {
+            if (!getIds.success || getIds.rows.length === 0) {
                 return mysql.TRANSACTION.ROLLBACK;
             }
 
             let did = [];
             let cid = [];
 
-            for (let v in getDid.rows) {
-                did.push(getDid.rows[v].id);
+            for (let i = 0; i < getIds.rows.length; i++) {
+                if (i === 0) {
+                    did = getIds.rows[i].map((row) => row.id);
+                }
+
+                if (i === 1) {
+                    cid = getIds.rows[i].map((row) => row.id);
+                }
             }
-            for (let v in getCid.rows) {
-                cid.push(getCid.rows[v].id);
-            }
+
             let menuList = [];
             let parseList = JSON.parse(reqData.menuList);
 
@@ -78,7 +84,7 @@ router.post("/add", jwtVerify, addValidator, async (req, res) => {
                 let newObj = new Object();
                 (newObj.menu = parseList[i].menu), (newObj.kcal = parseList[i].kcal), (newObj.amount = parseList[i].amount), (newObj.unit = parseList[i].unit), (newObj.did = parseList[i].did), (newObj.cid = parseList[i].cid), (newObj.fid = parseList[i].fid), menuList.push(newObj);
             }
-            console.log(parseList.length);
+
             for (let v in menuList) {
                 if (menuList[v].did === 4) {
                     continue;

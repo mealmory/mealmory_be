@@ -96,8 +96,53 @@ router.get("/home", jwtVerify, async (req, res) => {
     }
 });
 
-const testValidator = [];
+const testValidator = [query("id").notEmpty(), query("email").notEmpty(), validationHandler.handle];
+const jwt = require("jsonwebtoken");
+router.get("/test", testValidator, async (req, res) => {
+    let reqData = matchedData(req);
 
-router.post("/test", testValidator, async (req, res) => {});
+    let refresh_token = jwt.sign(
+        {
+            id: reqData.id,
+            email: reqData.email,
+        },
+        config.jwt.secret,
+        { expiresIn: config.jwt.refreshExp },
+    );
+
+    res.successResponse(refresh_token);
+});
+
+router.get("/data", async (req, res) => {
+    try {
+        let getData = await mysql.query(
+            `
+            SELECT * FROM ${schema.DATA}.in LIMIT 10;
+            SELECT * FROM ${schema.DATA}.out LIMIT 10;
+            SELECT * FROM ${schema.DATA}.processed LIMIT 10;
+        `,
+        );
+
+        if (!getData.success) {
+            res.failResponse("QueryError");
+            return;
+        }
+        console.log(getData.rows[0].length);
+        console.log(getData.rows[1].length);
+        console.log(getData.rows[2].length);
+
+        let data = {};
+        data.in = getData.rows[0];
+        data.out = getData.rows[1];
+        data.processed = getData.rows[2];
+
+        res.successResponse(data);
+    } catch (exception) {
+        console.log(exception);
+        log.error(exception);
+        res.failResponse("ServerError");
+        return;
+    }
+});
 
 module.exports = router;
