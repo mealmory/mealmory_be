@@ -112,6 +112,17 @@ router.post("/add", jwtVerify, addValidator, async (req, res) => {
             for (let v in parseList) {
                 menu_spec.push(parseList[v].menu_spec);
             }
+
+            let carbs = 0;
+            let protein = 0;
+            let fat = 0;
+
+            for (let i = 0; i < menu_spec.length; i++) {
+                carbs += menu_spec[i].carbs;
+                protein += menu_spec[i].protein;
+                fat += menu_spec[i].fat;
+            }
+
             let inputPlan = await method.execute(
                 `
                 INSERT INTO ${schema.COMMON}.plan (uid, type, list, total, time) VALUES (?, ?, ?, ?, ?);
@@ -131,9 +142,9 @@ router.post("/add", jwtVerify, addValidator, async (req, res) => {
 
             let inputPlanSpec = await method.execute(
                 `
-                INSERT INTO ${schema.COMMON}.plan_spec (uid, pid, cpf) VALUES (?, ?, ?);
+                INSERT INTO ${schema.COMMON}.plan_spec (uid, pid, cpf, t_carbs, t_protein, t_fat) VALUES (?, ?, ?, ?, ?, ?);
                 `,
-                [userInfo.id, getPid.rows[0].id, menu_spec],
+                [userInfo.id, getPid.rows[0].id, menu_spec, carbs, protein, fat],
             );
 
             if (!inputPlanSpec.success) {
@@ -163,34 +174,37 @@ router.get("/search", jwtVerify, searchValidator, async (req, res) => {
         let usreInfo = req.userInfo;
         let reqData = matchedData(req);
 
-        let query = `SELECT id, type, time, total FROM ${schema.COMMON}.plan WHERE 1 = 1 AND uid = ? AND `;
+        let query = `SELECT id, type, total, time, DATE_FORMAT(time, '%Y-%m-%d') AS format_time FROM ${schema.COMMON}.plan WHERE 1 = 1 AND uid = ? AND `;
         let queryParams = [usreInfo.id];
 
         let dateRange = util.rangeDate(reqData.time, reqData.type);
 
-        if (reqData.type == 1) {
-            query += `time = ? `;
-            queryParams.push(dateRange.start);
-        } else {
-            query += `time BETWEEN ? AND ? `;
-            queryParams.push(dateRange.start, dateRange.end);
-        }
+        query += `time BETWEEN ? AND ? `;
+        queryParams.push(dateRange.start, dateRange.end);
 
         query += `ORDER BY id ASC;`;
 
         let getPlan = await mysql.query(query, queryParams);
-
+        console.log(getPlan.rows);
         if (!getPlan.success) {
             res.failResponse("QueryError");
             return;
         }
 
-        if (getPlan.rows.length === 0) {
-            res.failResponse("MealPlanNull");
-            return;
-        }
+        // if (getPlan.rows.length === 0) {
+        //     res.failResponse("MealPlanNull");
+        //     return;
+        // }
 
-        res.successResponse(getPlan.rows);
+        let dateArray = util.dateArray(dateRange.start, dateRange.end);
+
+        getPlan.rows.forEach((item) => {
+            if (dateArray.hasOwnProperty(item.format_time)) {
+                dateArray[item.format_time].push(item);
+            }
+        });
+
+        res.successResponse(dateArray);
     } catch (exception) {
         console.log(exception);
         log.error(exception);
