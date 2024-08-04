@@ -218,7 +218,8 @@ router.get("/search", jwtVerify, searchValidator, async (req, res) => {
 const infoValidator = [query("time").isString().optional(), query("id").isInt().optional(), validationHandler.handle];
 
 router.get("/info", jwtVerify, infoValidator, async (req, res) => {
-    let userInfo = req.userInfo;
+    try {
+        let userInfo = req.userInfo;
     let reqData = matchedData(req);
 
     if (!reqData.time && !reqData.id) {
@@ -300,7 +301,12 @@ router.get("/info", jwtVerify, infoValidator, async (req, res) => {
 
         data.push(item);
     }
-
+    
     res.successResponse(data);
+    } catch (exception) {
+        log.error(exception);
+        res.failResponse("ServerError");
+        return;
+    }
 });
-module.exports = router;
+module.exports = router; 
