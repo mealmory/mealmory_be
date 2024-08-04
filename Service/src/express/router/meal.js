@@ -271,19 +271,36 @@ router.get("/info", jwtVerify, infoValidator, async (req, res) => {
             type: row.type,
             total: row.total,
             time: row.time,
-            list: row.list,
+            list: [],
         };
 
         for (let j = 0; j < row.list.length; j++) {
-            item.list.push({
-                cpf: row.cpf[j],
-            });
+            let list = row.list[j];
+
+            let carbs = row.cpf[j].carbs;
+            let protein = row.cpf[j].protein;
+            let fat = row.cpf[j].fat;
+
+            let listItem = {
+                menu: list.menu,
+                kcal: list.kcal,
+                amount: list.amount,
+                unit: list.unit,
+                did: list.did,
+                cid: list.cid,
+                fid: list.fid,
+                menu_spec: {
+                    carbs: carbs,
+                    protein: protein,
+                    fat: fat,
+                }
+            }
+            item.list.push(listItem);
         }
 
         data.push(item);
     }
 
-    console.log(data);
     res.successResponse(data);
 });
 module.exports = router;
