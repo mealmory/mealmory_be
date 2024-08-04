@@ -13,6 +13,7 @@ const { matchedData, validationResult, body, query } = require("express-validato
 const validationHandler = require("../validationHandler");
 const schema = config.database.schema;
 const moment = require("moment-timezone");
+const { info } = require("winston");
 
 const addValidator = [
     body("type").notEmpty().isInt().isIn([1, 2, 3, 4, 5]),
@@ -182,25 +183,26 @@ router.get("/search", jwtVerify, searchValidator, async (req, res) => {
         query += `time BETWEEN ? AND ? `;
         queryParams.push(dateRange.start, dateRange.end);
 
-        query += `ORDER BY id ASC;`;
+        query += `ORDER BY time ASC;`;
 
         let getPlan = await mysql.query(query, queryParams);
-        console.log(getPlan.rows);
+
         if (!getPlan.success) {
             res.failResponse("QueryError");
             return;
         }
 
-        // if (getPlan.rows.length === 0) {
-        //     res.failResponse("MealPlanNull");
-        //     return;
-        // }
-
         let dateArray = util.dateArray(dateRange.start, dateRange.end);
 
         getPlan.rows.forEach((item) => {
             if (dateArray.hasOwnProperty(item.format_time)) {
-                dateArray[item.format_time].push(item);
+                let data = {
+                    id: item.id,
+                    type: item.type,
+                    total: item.total,
+                    time: item.time,
+                };
+                dateArray[item.format_time].push(data);
             }
         });
 
@@ -213,4 +215,75 @@ router.get("/search", jwtVerify, searchValidator, async (req, res) => {
     }
 });
 
+const infoValidator = [query("time").isString().optional(), query("id").isInt().optional(), validationHandler.handle];
+
+router.get("/info", jwtVerify, infoValidator, async (req, res) => {
+    let userInfo = req.userInfo;
+    let reqData = matchedData(req);
+
+    if (!reqData.time && !reqData.id) {
+        res.failResponse("ParameterInvalid");
+        return;
+    }
+
+    let query = "";
+    let queryParams = [];
+    query = `
+        SELECT p.id, p.uid, p.type, p.list, p.total, s.cpf, s.t_carbs, s.t_protein, s.t_fat, p.time
+        FROM mealmory.plan AS p INNER JOIN mealmory.plan_spec AS s
+        ON p.id = s.pid `;
+
+    if (!reqData.time) {
+        query += `WHERE p.id = ? `;
+        queryParams.push(reqData.id);
+    }
+
+    if (!reqData.id) {
+        let start = moment(reqData.time).startOf("day").format("YYYY-MM-DD HH:mm:ss");
+        let end = moment(reqData.time).endOf("day").format("YYYY-MM-DD HH:mm:ss");
+
+        query += `WHERE p.uid = ? AND p.time BETWEEN ? AND ? `;
+        queryParams.push(userInfo.id, start, end);
+    }
+
+    query += `ORDER BY p.time ASC;`;
+
+    let getMealInfo = await mysql.query(query, queryParams);
+
+    if (!getMealInfo.success) {
+        res.failResponse("QueryError");
+        return;
+    }
+
+    if (getMealInfo.rows.length === 0) {
+        res.failResponse("MealPlanNull");
+        return;
+    }
+
+    let data = [];
+
+    for (let i = 0; i < getMealInfo.rows.length; i++) {
+        let row = getMealInfo.rows[i];
+
+        let item = {
+            id: row.id,
+            uid: row.uid,
+            type: row.type,
+            total: row.total,
+            time: row.time,
+            list: row.list,
+        };
+
+        for (let j = 0; j < row.list.length; j++) {
+            item.list.push({
+                cpf: row.cpf[j],
+            });
+        }
+
+        data.push(item);
+    }
+
+    console.log(data);
+    res.successResponse(data);
+});
 module.exports = router;
