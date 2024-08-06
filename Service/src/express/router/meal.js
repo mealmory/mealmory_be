@@ -30,18 +30,6 @@ const addValidator = [
     body("menuList.*.menu_spec.carbs").notEmpty().isFloat(),
     body("menuList.*.menu_spec.protein").notEmpty().isFloat(),
     body("menuList.*.menu_spec.fat").notEmpty().isFloat(),
-    body("menuList.*").notEmpty().isObject(),
-    body("menuList.*.menu").notEmpty().isString(),
-    body("menuList.*.kcal").notEmpty().isFloat(),
-    body("menuList.*.amount").notEmpty().isFloat(),
-    body("menuList.*.unit").notEmpty().isInt().isIn([0, 1]),
-    body("menuList.*.did").notEmpty().isInt(),
-    body("menuList.*.cid").notEmpty().isInt(),
-    body("menuList.*.fid").notEmpty().isInt(),
-    body("menuList.*.menu_spec").notEmpty().isObject(),
-    body("menuList.*.menu_spec.carbs").notEmpty().isFloat(),
-    body("menuList.*.menu_spec.protein").notEmpty().isFloat(),
-    body("menuList.*.menu_spec.fat").notEmpty().isFloat(),
     body("total").notEmpty().isFloat(),
     validationHandler.handle,
 ];
@@ -85,14 +73,6 @@ router.post("/add", jwtVerify, addValidator, async (req, res) => {
             );
 
             if (!getIds.success || getIds.rows.length === 0) {
-            let getIds = await method.query(
-                `
-                SELECT id FROM ${schema.DATA}.division;
-                SELECT id FROM ${schema.DATA}.category;
-                `,
-            );
-
-            if (!getIds.success || getIds.rows.length === 0) {
                 return mysql.TRANSACTION.ROLLBACK;
             }
 
@@ -107,16 +87,7 @@ router.post("/add", jwtVerify, addValidator, async (req, res) => {
                 if (i === 1) {
                     cid = getIds.rows[i].map((row) => row.id);
                 }
-            for (let i = 0; i < getIds.rows.length; i++) {
-                if (i === 0) {
-                    did = getIds.rows[i].map((row) => row.id);
-                }
-
-                if (i === 1) {
-                    cid = getIds.rows[i].map((row) => row.id);
-                }
             }
-
 
             let menuList = [];
             let parseList = JSON.parse(reqData.menuList);
@@ -125,7 +96,6 @@ router.post("/add", jwtVerify, addValidator, async (req, res) => {
                 let newObj = new Object();
                 (newObj.menu = parseList[i].menu), (newObj.kcal = parseList[i].kcal), (newObj.amount = parseList[i].amount), (newObj.unit = parseList[i].unit), (newObj.did = parseList[i].did), (newObj.cid = parseList[i].cid), (newObj.fid = parseList[i].fid), menuList.push(newObj);
             }
-
 
             for (let v in menuList) {
                 if (menuList[v].did === 4) {
@@ -142,17 +112,6 @@ router.post("/add", jwtVerify, addValidator, async (req, res) => {
             for (let v in parseList) {
                 menu_spec.push(parseList[v].menu_spec);
             }
-
-            let carbs = 0;
-            let protein = 0;
-            let fat = 0;
-
-            for (let i = 0; i < menu_spec.length; i++) {
-                carbs += menu_spec[i].carbs;
-                protein += menu_spec[i].protein;
-                fat += menu_spec[i].fat;
-            }
-
 
             let carbs = 0;
             let protein = 0;
@@ -184,9 +143,7 @@ router.post("/add", jwtVerify, addValidator, async (req, res) => {
             let inputPlanSpec = await method.execute(
                 `
                 INSERT INTO ${schema.COMMON}.plan_spec (uid, pid, cpf, t_carbs, t_protein, t_fat) VALUES (?, ?, ?, ?, ?, ?);
-                INSERT INTO ${schema.COMMON}.plan_spec (uid, pid, cpf, t_carbs, t_protein, t_fat) VALUES (?, ?, ?, ?, ?, ?);
                 `,
-                [userInfo.id, getPid.rows[0].id, menu_spec, carbs, protein, fat],
                 [userInfo.id, getPid.rows[0].id, menu_spec, carbs, protein, fat],
             );
 
@@ -203,52 +160,6 @@ router.post("/add", jwtVerify, addValidator, async (req, res) => {
         }
 
         res.successResponse();
-    } catch (exception) {
-        log.error(exception);
-        res.failResponse("ServerError");
-        return;
-    }
-});
-
-const searchValidator = [query("type").notEmpty().isInt().isIn([1, 2, 3]), query("time").notEmpty().isString()];
-
-router.get("/search", jwtVerify, searchValidator, async (req, res) => {
-    try {
-        let usreInfo = req.userInfo;
-        let reqData = matchedData(req);
-
-        let query = `SELECT id, type, total, time, DATE_FORMAT(time, '%Y-%m-%d') AS format_time FROM ${schema.COMMON}.plan WHERE 1 = 1 AND uid = ? AND `;
-        let queryParams = [usreInfo.id];
-
-        let dateRange = util.rangeDate(reqData.time, reqData.type);
-
-        query += `time BETWEEN ? AND ? `;
-        queryParams.push(dateRange.start, dateRange.end);
-
-        query += `ORDER BY time ASC;`;
-
-        let getPlan = await mysql.query(query, queryParams);
-
-        if (!getPlan.success) {
-            res.failResponse("QueryError");
-            return;
-        }
-
-        let dateArray = util.dateArray(dateRange.start, dateRange.end);
-
-        getPlan.rows.forEach((item) => {
-            if (dateArray.hasOwnProperty(item.format_time)) {
-                let data = {
-                    id: item.id,
-                    type: item.type,
-                    total: item.total,
-                    time: item.time,
-                };
-                dateArray[item.format_time].push(data);
-            }
-        });
-
-        res.successResponse(dateArray);
     } catch (exception) {
         log.error(exception);
         res.failResponse("ServerError");
