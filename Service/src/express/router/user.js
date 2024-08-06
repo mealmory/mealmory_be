@@ -187,7 +187,7 @@ router.put("/process", jwtVerify, processValidator, async (req, res) => {
         }
 
         if (userVerify.rows.length === 0) {
-            res.failResponse("UserNotFound");
+            res.failResponse("DataNotFound");
             return;
         }
         let query = "";
@@ -242,7 +242,7 @@ router.post("/token", refreshVerify, async (req, res) => {
         }
 
         if (userVerify.rows.length === 0) {
-            res.failResponse("UserNotFound");
+            res.failResponse("DataNotFound");
             return;
         }
 
@@ -307,7 +307,7 @@ router.post("/info/add", jwtVerify, addValidator, async (req, res) => {
         }
 
         if (userVerify.rows.length === 0) {
-            res.failResponse("UserNotFound");
+            res.failResponse("DataNotFound");
             return;
         }
 
@@ -350,7 +350,7 @@ router.get("/info/search", jwtVerify, async (req, res) => {
         }
 
         if (userVerify.rows.length === 0) {
-            res.failResponse("UserNotFound");
+            res.failResponse("DataNotFound");
             return;
         }
 
@@ -385,7 +385,7 @@ router.put("/info/edit", jwtVerify, editValidator, async (req, res) => {
         }
 
         if (userVerify.rows.length === 0) {
-            res.failResponse("UserNotFound");
+            res.failResponse("DataNotFound");
             return;
         }
 
@@ -480,7 +480,7 @@ router.delete("/info/delete", jwtVerify, async (req, res) => {
         }
 
         if (userVerify.rows.length === 0) {
-            res.failResponse("UserNotFound");
+            res.failResponse("DataNotFound");
             return;
         }
 

@@ -10,6 +10,7 @@ const moment = require("moment-timezone");
 const nodeUtil = require("util");
 const config = require("./config");
 const jwt = require("jsonwebtoken");
+const e = require("express");
 
 util.sleep = (ms) => new Promise((resolve) => setTimeout(resolvem, ms));
 
@@ -156,6 +157,49 @@ util.userAmr = function (bmr, activemass) {
     let amr = parseFloat((bmr * multi).toFixed(2));
 
     return amr;
+};
+
+util.rangeDate = function (dateStr, option) {
+    let date = moment(dateStr, "YYYY-MM-DD HH:mm:ss");
+
+    let range = {};
+    let start, end;
+
+    switch (Number(option)) {
+        case 1:
+            start = date.startOf().format("YYYY-MM-DD HH:mm:ss");
+            end = date.endOf().format("YYYY-MM-DD HH:mm:ss");
+            break;
+        case 2:
+            start = date.clone().startOf("week").day(0).format("YYYY-MM-DD HH:mm:ss");
+            end = date.clone().endOf("week").day(6).format("YYYY-MM-DD HH:mm:ss");
+            break;
+        case 3:
+            start = date.clone().startOf("month").format("YYYY-MM-DD HH:mm:ss");
+            end = date.clone().endOf("month").format("YYYY-MM-DD HH:mm:ss");
+            break;
+    }
+
+    range.start = start;
+    range.end = end;
+
+    return range;
+};
+
+util.dateArray = function (startDate, endDate) {
+    let start = moment(startDate);
+    let end = moment(endDate);
+    let dateArray = {};
+
+    let current = start.clone();
+
+    while (current <= end) {
+        let formatDate = current.format("YYYY-MM-DD");
+        dateArray[formatDate] = [];
+        current.add(1, "day");
+    }
+
+    return dateArray;
 };
 
 JSON.emptyObject = JSON.stringify({});

@@ -15,6 +15,7 @@ const cors = require("cors");
 const userRouter = require("./router/user");
 const mainRouter = require("./router/main");
 const mealRouter = require("./router/meal");
+const noticeRouter = require("./router/notice");
 
 express.init = function () {
     return new Promise(async (resolve, reject) => {
@@ -86,6 +87,7 @@ express.init = function () {
             webServer.use("/api/user", userRouter);
             webServer.use("/api/main", mainRouter);
             webServer.use("/api/meal", mealRouter);
+            webServer.use("/api/notice", noticeRouter);
 
             let routers = engine.Router();
 
