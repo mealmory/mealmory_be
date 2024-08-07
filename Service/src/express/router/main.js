@@ -98,6 +98,7 @@ router.get("/home", jwtVerify, async (req, res) => {
 
 const testValidator = [query("id").notEmpty(), query("email").notEmpty(), validationHandler.handle];
 const jwt = require("jsonwebtoken");
+
 router.get("/test", testValidator, async (req, res) => {
     let reqData = matchedData(req);
 
@@ -109,8 +110,8 @@ router.get("/test", testValidator, async (req, res) => {
         config.jwt.secret,
         { expiresIn: config.jwt.refreshExp },
     );
-
-    res.successResponse(refresh_token);
+    let token = `Bearer ${refresh_token}`;
+    res.successResponse(token);
 });
 
 router.get("/data", async (req, res) => {

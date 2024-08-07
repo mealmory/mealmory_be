@@ -14,6 +14,7 @@ const validationHandler = require("../validationHandler");
 const schema = config.database.schema;
 const moment = require("moment-timezone");
 
+//TODO: depth가 너무 깊고, db에서 파악하기 어려움 구조 재설정 필요
 const addValidator = [
     body("type").notEmpty().isInt().isIn([1, 2, 3, 4, 5]),
     body("time").notEmpty().isString(),
@@ -23,7 +24,7 @@ const addValidator = [
     body("menuList.*.kcal").notEmpty().isFloat(),
     body("menuList.*.amount").notEmpty().isFloat(),
     body("menuList.*.unit").notEmpty().isInt().isIn([0, 1]),
-    body("menuList.*.did").notEmpty().isInt(),
+    body("menuList.*.did").notEmpty().isInt().isIn([1, 2, 3, 4]),
     body("menuList.*.cid").notEmpty().isInt(),
     body("menuList.*.fid").notEmpty().isInt(),
     body("menuList.*.menu_spec").notEmpty().isObject(),
@@ -47,7 +48,7 @@ router.post("/add", jwtVerify, addValidator, async (req, res) => {
         }
 
         if (userVerify.rows.length === 0) {
-            res.failResponse("DataNotFound");
+            res.failResponse("UserNotFound");
             return;
         }
         let date = moment(reqData.time, "YYYY-MM-DD").format("YYYY-MM-DD");
@@ -172,7 +173,7 @@ const searchValidator = [query("type").notEmpty().isInt().isIn([1, 2, 3]), query
 router.get("/search", jwtVerify, searchValidator, async (req, res) => {
     try {
         let usreInfo = req.userInfo;
-        let reqData = matchedData(req);
+        let reqData = matchedData(req.body);
 
         let query = `SELECT id, type, total, time, DATE_FORMAT(time, '%Y-%m-%d') AS format_time FROM ${schema.COMMON}.plan WHERE 1 = 1 AND uid = ? AND `;
         let queryParams = [usreInfo.id];
@@ -207,7 +208,6 @@ router.get("/search", jwtVerify, searchValidator, async (req, res) => {
 
         res.successResponse(dateArray);
     } catch (exception) {
-        console.log(exception);
         log.error(exception);
         res.failResponse("ServerError");
         return;
@@ -256,7 +256,7 @@ router.get("/info", jwtVerify, infoValidator, async (req, res) => {
         }
 
         if (getMealInfo.rows.length === 0) {
-            res.failResponse("DataNotFound");
+            res.failResponse("MealPlanNull");
             return;
         }
 

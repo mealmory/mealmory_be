@@ -14,6 +14,7 @@ const validationHandler = require("../validationHandler");
 const { jwt } = require("../../util/config");
 const schema = config.database.schema;
 
+// TODO: 관리자 등급 설정
 const addValidator = [body("title").notEmpty().isString(), body("description").notEmpty().isString(), validationHandler.handle];
 
 router.post("/add", jwtVerify, addValidator, async (req, res) => {
@@ -153,8 +154,6 @@ router.get("/info", jwtVerify, infoValidator, async (req, res) => {
             return;
         }
 
-        console.log(userFlag.rows);
-
         if (userFlag.rows[0].notice == 0) {
             if (reqData.id == flagVerify.rows[0].id) {
                 let flagUpdate = await mysql.execute(`UPDATE ${schema.COMMON}.user_flag SET notice = 1 WHERE uid = ?;`, [userInfo.id]);
@@ -184,6 +183,110 @@ router.get("/info", jwtVerify, infoValidator, async (req, res) => {
         }
 
         res.successResponse(getInfo.rows);
+    } catch (exception) {
+        log.error(exception);
+        res.failResponse("ServerError");
+        return;
+    }
+});
+
+const editValidator = [body("id").notEmpty().isInt(), body("title").isString().optional(), body("description").isString().optional(), validationHandler.handle];
+
+router.put("/edit", jwtVerify, editValidator, async (req, res) => {
+    try {
+        let userInfo = req.userInfo;
+        let reqData = matchedData(req);
+
+        if (!reqData.title && !reqData.description) {
+            res.failResponse("ParameterInvalid");
+            return;
+        }
+
+        let userVerify = await mysql.query(`SELECT id, email FROM ${schema.COMMON}.user WHERE id = ?;`, [userInfo.id]);
+
+        if (!userVerify.success) {
+            res.failResponse("QueryError");
+            return;
+        }
+
+        if (userVerify.rows.length === 0) {
+            res.failResponse("DataNotFound");
+            return;
+        }
+
+        let query = `UPDATE ${schema.COMMON}.notice SET`;
+        let queryParams = [];
+
+        for (let v in reqData) {
+            if (v !== "id") {
+                query += ` ${v} = ?,`;
+                queryParams.push(reqData[v]);
+            }
+        }
+
+        query = query.slice(0, -1);
+        query += ` WHERE id = ?;`;
+        queryParams.push(reqData.id);
+
+        let editNotice = await mysql.execute(query, queryParams);
+
+        if (!editNotice.success) {
+            res.failResponse("QueryError");
+            return;
+        }
+
+        if (editNotice.affectedRows === 0) {
+            res.failResponse("AffectedEmpty");
+            return;
+        }
+
+        res.successResponse();
+    } catch (exception) {
+        log.error(exception);
+        res.failResponse("ServerError");
+        return;
+    }
+});
+
+const deleteValidator = [body("id").notEmpty().isInt(), validationHandler.handle];
+
+router.delete("/delete", jwtVerify, deleteValidator, async (req, res) => {
+    try {
+        let userInfo = req.userInfo;
+        let reqData = matchedData(req);
+
+        let userVerify = await mysql.query(`SELECT id, email FROM ${schema.COMMON}.user WHERE id = ?;`, [userInfo.id]);
+
+        if (!userVerify.success) {
+            res.failResponse("QueryError");
+            return;
+        }
+
+        if (userVerify.rows.length === 0) {
+            res.failResponse("DataNotFound");
+            return;
+        }
+
+        let idVerify = await mysql.query(`SELECT id FROM ${schema.COMMON}.notice WHERE id = ?;`, [reqData.id]);
+
+        if (!idVerify.success) {
+            res.failResponse("QueryError");
+            return;
+        }
+
+        if (idVerify.rows.length === 0) {
+            res.failResponse("ParameterInvalid");
+            return;
+        }
+
+        let deleteNotice = await mysql.execute(`DELETE FROM ${schema.COMMON}.notice WHERE id = ?;`, [reqData.id]);
+
+        if (!deleteNotice.success) {
+            res.failResponse("QueryError");
+            return;
+        }
+
+        res.successResponse();
     } catch (exception) {
         console.log(exception);
         log.error(exception);
