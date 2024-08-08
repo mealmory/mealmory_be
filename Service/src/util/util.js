@@ -222,6 +222,41 @@ util.didVerify = function (did) {
     return result;
 };
 
+util.typeChange = function (type) {
+    let result = "";
+    switch (Number(type)) {
+        case 1:
+            result = "아침";
+            break;
+        case 2:
+            result = "점심";
+            break;
+        case 3:
+            result = "저녁";
+            break;
+        case 4:
+            result = "야식";
+            break;
+        case 5:
+            result = "간식";
+            break;
+    }
+    return result;
+};
+
+util.unitChange = function (unit) {
+    let result = "";
+    switch (Number(unit)) {
+        case 1:
+            result = "g";
+            break;
+        case 2:
+            result = "ml";
+            break;
+    }
+    return result;
+};
+
 JSON.emptyObject = JSON.stringify({});
 JSON.emptyArray = JSON.stringify([]);
 

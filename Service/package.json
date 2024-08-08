@@ -5,7 +5,7 @@
     "private": true,
     "scripts": {
         "start": "node src/main.js",
-        "start_nodemon": "nodemon src/main.js"
+        "start:dev": "nodemon src/main.js"
     },
     "author": "tunajo",
     "license": "ISC",

@@ -59,6 +59,7 @@ router.post("/add", jwtVerify, addValidator, async (req, res) => {
         let d_count = 0;
         for (let i = 0; i < menuList.length; i++) {
             let table = util.didVerify(menuList[i].did);
+
             if (table !== "") {
                 query += `
                 SELECT id FROM ${schema.DATA}.${table} WHERE did = ? AND cid = ? AND id = ?;
@@ -127,7 +128,6 @@ router.post("/add", jwtVerify, addValidator, async (req, res) => {
             for (let i = 0; i < menuList.length; i++) {
                 query = `INSERT INTO ${schema.COMMON}.plan_spec (uid, pid, did, cid, fid, unit, menu, kcal, amount, carbs, protein, fat) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`;
                 queryParams.push(userInfo.id, getPid.rows[0].id, menuList[i].did, menuList[i].cid, menuList[i].fid, menuList[i].unit, menuList[i].menu, menuList[i].kcal, menuList[i].amount, menuList[i].carbs, menuList[i].protein, menuList[i].fat);
-
                 let inputPlanSpec = await method.execute(query, queryParams);
 
                 if (!inputPlanSpec.success) {
@@ -147,7 +147,6 @@ router.post("/add", jwtVerify, addValidator, async (req, res) => {
 
         res.successResponse();
     } catch (exception) {
-        console.log(exception);
         log.error(exception);
         res.failResponse("ServerError");
         return;
@@ -165,7 +164,7 @@ router.get("/search", jwtVerify, searchValidator, async (req, res) => {
         let queryParams = [usreInfo.id];
 
         let dateRange = util.rangeDate(reqData.time, reqData.type);
-        console.log(dateRange);
+
         query += `time BETWEEN ? AND ? `;
         queryParams.push(dateRange.start, dateRange.end);
 
@@ -239,7 +238,6 @@ router.get("/info", jwtVerify, infoValidator, async (req, res) => {
         if (reqData.time) {
             let start = moment(reqData.time).startOf("day").format("YYYY-MM-DD HH:mm:ss");
             let end = moment(reqData.time).endOf("day").format("YYYY-MM-DD HH:mm:ss");
-            console.log(start, end);
             query += `AND time BETWEEN ? AND ? `;
             queryParams.push(start, end);
         }
@@ -299,7 +297,6 @@ router.get("/info", jwtVerify, infoValidator, async (req, res) => {
 
         res.successResponse(data);
     } catch (exception) {
-        console.log(exception);
         log.error(exception);
         res.failResponse("ServerError");
         return;
