@@ -96,10 +96,10 @@ router.get("/home", jwtVerify, async (req, res) => {
     }
 });
 
-const testValidator = [query("id").notEmpty(), query("email").notEmpty(), validationHandler.handle];
+const tokenValidator = [query("id").notEmpty(), query("email").notEmpty(), validationHandler.handle];
 const jwt = require("jsonwebtoken");
 
-router.get("/test", testValidator, async (req, res) => {
+router.get("/token", tokenValidator, async (req, res) => {
     let reqData = matchedData(req);
 
     let refresh_token = jwt.sign(
@@ -128,9 +128,6 @@ router.get("/data", async (req, res) => {
             res.failResponse("QueryError");
             return;
         }
-        console.log(getData.rows[0].length);
-        console.log(getData.rows[1].length);
-        console.log(getData.rows[2].length);
 
         let data = {};
         data.in = getData.rows[0];
@@ -138,6 +135,17 @@ router.get("/data", async (req, res) => {
         data.processed = getData.rows[2];
 
         res.successResponse(data);
+    } catch (exception) {
+        console.log(exception);
+        log.error(exception);
+        res.failResponse("ServerError");
+        return;
+    }
+});
+const testValidator = [query("time").isString().optional(), query("id").isInt().optional(), validationHandler.handle];
+
+router.get("/test", jwtVerify, testValidator, async (req, res) => {
+    try {
     } catch (exception) {
         console.log(exception);
         log.error(exception);

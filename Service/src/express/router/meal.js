@@ -14,10 +14,10 @@ const validationHandler = require("../validationHandler");
 const schema = config.database.schema;
 const moment = require("moment-timezone");
 
-//TODO: depth가 너무 깊고, db에서 파악하기 어려움 구조 재설정 필요
 const addValidator = [
-    body("type").notEmpty().isInt().isIn([1, 2, 3, 4, 5]),
     body("time").notEmpty().isString(),
+    body("type").notEmpty().isInt().isIn([1, 2, 3, 4, 5]),
+    body("total").notEmpty().isFloat(),
     body("menuList").notEmpty(),
     body("menuList.*").notEmpty().isObject(),
     body("menuList.*.menu").notEmpty().isString(),
@@ -27,11 +27,9 @@ const addValidator = [
     body("menuList.*.did").notEmpty().isInt().isIn([1, 2, 3, 4]),
     body("menuList.*.cid").notEmpty().isInt(),
     body("menuList.*.fid").notEmpty().isInt(),
-    body("menuList.*.menu_spec").notEmpty().isObject(),
-    body("menuList.*.menu_spec.carbs").notEmpty().isFloat(),
-    body("menuList.*.menu_spec.protein").notEmpty().isFloat(),
-    body("menuList.*.menu_spec.fat").notEmpty().isFloat(),
-    body("total").notEmpty().isFloat(),
+    body("menuList.*.carbs").notEmpty().isFloat(),
+    body("menuList.*.protein").notEmpty().isFloat(),
+    body("menuList.*.fat").notEmpty().isFloat(),
     validationHandler.handle,
 ];
 
@@ -40,6 +38,7 @@ router.post("/add", jwtVerify, addValidator, async (req, res) => {
         let userInfo = req.userInfo;
         let reqData = matchedData(req);
 
+        // user 검증
         let userVerify = await mysql.query(`SELECT id, email FROM ${schema.COMMON}.user WHERE id = ?;`, [userInfo.id]);
 
         if (!userVerify.success) {
@@ -48,108 +47,94 @@ router.post("/add", jwtVerify, addValidator, async (req, res) => {
         }
 
         if (userVerify.rows.length === 0) {
-            res.failResponse("UserNotFound");
+            res.failResponse("DataNotFound");
             return;
         }
-        let date = moment(reqData.time, "YYYY-MM-DD").format("YYYY-MM-DD");
 
-        let planVerify = await mysql.query(`SELECT type FROM ${schema.COMMON}.plan WHERE uid = ? AND type = ? AND DATE(time) = ?;`, [userInfo.id, reqData.type, date]);
+        // did, cid로 조건 걸어서 fid 검증 + did = 4일땐 패스
+        let menuList = util.safeParseJSON(reqData.menuList);
 
-        if (!planVerify.success) {
+        let query = "";
+        let queryParams = [];
+        let d_count = 0;
+        for (let i = 0; i < menuList.length; i++) {
+            let table = util.didVerify(menuList[i].did);
+            if (table !== "") {
+                query += `
+                SELECT id FROM ${schema.DATA}.${table} WHERE did = ? AND cid = ? AND id = ?;
+            `;
+                queryParams.push(menuList[i].did, menuList[i].cid, menuList[i].fid);
+                d_count += 1;
+            } else {
+                continue;
+            }
+        }
+
+        let foodVerify = await mysql.query(query, queryParams);
+
+        if (!foodVerify.success) {
             res.failResponse("QueryError");
             return;
         }
 
-        if (planVerify.rows.length !== 0 && planVerify.rows[0].type === Number(reqData.type)) {
-            res.failResponse("MealPlanDuplicate");
+        if (foodVerify.rows.length !== d_count) {
+            res.failResponse("ParameterInvalid");
             return;
         }
 
+        // type 검증 1,2,3,4 type은 하루에 한번 + 5 type은 여러번 가능
+        if (Number(reqData.type) !== 5) {
+            queryParams = [];
+
+            query = `SELECT id FROM ${schema.COMMON}.plan WHERE uid = ? AND type = ?;`;
+            queryParams.push(userInfo.id, reqData.type);
+
+            let planVerify = await mysql.query(query, queryParams);
+
+            if (!planVerify.success) {
+                res.failResponse("QueryError");
+                return;
+            }
+
+            if (planVerify.rows.length > 0) {
+                res.failResponse("MealPlanDuplicate");
+                return;
+            }
+        }
+
+        // plan insert
         let result = await mysql.transactionStatement(async (method) => {
-            let getIds = await method.query(
-                `
-                SELECT id FROM ${schema.DATA}.division;
-                SELECT id FROM ${schema.DATA}.category;
-                `,
-            );
+            queryParams = [];
+            query = `INSERT INTO ${schema.COMMON}.plan (uid, type, total, time) VALUES (?, ?, ?, ?);`;
+            queryParams.push(userInfo.id, reqData.type, reqData.total, reqData.time);
 
-            if (!getIds.success || getIds.rows.length === 0) {
-                return mysql.TRANSACTION.ROLLBACK;
-            }
-
-            let did = [];
-            let cid = [];
-
-            for (let i = 0; i < getIds.rows.length; i++) {
-                if (i === 0) {
-                    did = getIds.rows[i].map((row) => row.id);
-                }
-
-                if (i === 1) {
-                    cid = getIds.rows[i].map((row) => row.id);
-                }
-            }
-
-            let menuList = [];
-            let parseList = JSON.parse(reqData.menuList);
-
-            for (let i = 0; i < parseList.length; i++) {
-                let newObj = new Object();
-                (newObj.menu = parseList[i].menu), (newObj.kcal = parseList[i].kcal), (newObj.amount = parseList[i].amount), (newObj.unit = parseList[i].unit), (newObj.did = parseList[i].did), (newObj.cid = parseList[i].cid), (newObj.fid = parseList[i].fid), menuList.push(newObj);
-            }
-
-            for (let v in menuList) {
-                if (menuList[v].did === 4) {
-                    continue;
-                }
-
-                if (!did.includes(menuList[v].did) || !cid.includes(menuList[v].cid)) {
-                    return mysql.TRANSACTION.ROLLBACK;
-                }
-            }
-
-            let menu_spec = [];
-
-            for (let v in parseList) {
-                menu_spec.push(parseList[v].menu_spec);
-            }
-
-            let carbs = 0;
-            let protein = 0;
-            let fat = 0;
-
-            for (let i = 0; i < menu_spec.length; i++) {
-                carbs += menu_spec[i].carbs;
-                protein += menu_spec[i].protein;
-                fat += menu_spec[i].fat;
-            }
-
-            let inputPlan = await method.execute(
-                `
-                INSERT INTO ${schema.COMMON}.plan (uid, type, list, total, time) VALUES (?, ?, ?, ?, ?);
-                `,
-                [userInfo.id, reqData.type, menuList, reqData.total, reqData.time],
-            );
+            let inputPlan = await method.execute(query, queryParams);
 
             if (!inputPlan.success) {
                 return mysql.TRANSACTION.ROLLBACK;
             }
 
-            let getPid = await method.query(`SELECT id FROM ${schema.COMMON}.plan WHERE uid = ? AND time = ?;`, [userInfo.id, reqData.time]);
+            queryParams = [];
+            query = `SELECT id FROM ${schema.COMMON}.plan WHERE uid = ? AND type = ? AND time = ?;`;
+            queryParams.push(userInfo.id, reqData.type, reqData.time);
+
+            let getPid = await method.query(query, queryParams);
 
             if (!getPid.success || getPid.rows.length === 0) {
                 return mysql.TRANSACTION.ROLLBACK;
             }
+            queryParams = [];
+            for (let i = 0; i < menuList.length; i++) {
+                query = `INSERT INTO ${schema.COMMON}.plan_spec (uid, pid, did, cid, fid, unit, menu, kcal, amount, carbs, protein, fat) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`;
+                queryParams.push(userInfo.id, getPid.rows[0].id, menuList[i].did, menuList[i].cid, menuList[i].fid, menuList[i].unit, menuList[i].menu, menuList[i].kcal, menuList[i].amount, menuList[i].carbs, menuList[i].protein, menuList[i].fat);
 
-            let inputPlanSpec = await method.execute(
-                `
-                INSERT INTO ${schema.COMMON}.plan_spec (uid, pid, cpf, t_carbs, t_protein, t_fat) VALUES (?, ?, ?, ?, ?, ?);
-                `,
-                [userInfo.id, getPid.rows[0].id, menu_spec, carbs, protein, fat],
-            );
+                let inputPlanSpec = await method.execute(query, queryParams);
 
-            if (!inputPlanSpec.success) {
-                return mysql.TRANSACTION.ROLLBACK;
+                if (!inputPlanSpec.success) {
+                    return mysql.TRANSACTION.ROLLBACK;
+                }
+
+                queryParams = [];
             }
 
             return mysql.TRANSACTION.COMMIT;
@@ -162,6 +147,7 @@ router.post("/add", jwtVerify, addValidator, async (req, res) => {
 
         res.successResponse();
     } catch (exception) {
+        console.log(exception);
         log.error(exception);
         res.failResponse("ServerError");
         return;
@@ -173,13 +159,13 @@ const searchValidator = [query("type").notEmpty().isInt().isIn([1, 2, 3]), query
 router.get("/search", jwtVerify, searchValidator, async (req, res) => {
     try {
         let usreInfo = req.userInfo;
-        let reqData = matchedData(req.body);
+        let reqData = matchedData(req);
 
         let query = `SELECT id, type, total, time, DATE_FORMAT(time, '%Y-%m-%d') AS format_time FROM ${schema.COMMON}.plan WHERE 1 = 1 AND uid = ? AND `;
         let queryParams = [usreInfo.id];
 
         let dateRange = util.rangeDate(reqData.time, reqData.type);
-
+        console.log(dateRange);
         query += `time BETWEEN ? AND ? `;
         queryParams.push(dateRange.start, dateRange.end);
 
@@ -221,91 +207,103 @@ router.get("/info", jwtVerify, infoValidator, async (req, res) => {
         let userInfo = req.userInfo;
         let reqData = matchedData(req);
 
+        let userVerify = await mysql.query(`SELECT id, email FROM ${schema.COMMON}.user WHERE id = ?;`, [userInfo.id]);
+
+        if (!userVerify.success) {
+            res.failResponse("QueryError");
+            return;
+        }
+
+        if (userVerify.rows.length === 0) {
+            res.failResponse("DataNotFound");
+            return;
+        }
+
         if (!reqData.time && !reqData.id) {
+            res.failResponse("ParameterInvalid");
+            return;
+        }
+
+        if (reqData.time && reqData.id) {
             res.failResponse("ParameterInvalid");
             return;
         }
 
         let query = "";
         let queryParams = [];
-        query = `
-        SELECT p.id, p.uid, p.type, p.list, p.total, s.cpf, s.t_carbs, s.t_protein, s.t_fat, p.time
-        FROM mealmory.plan AS p INNER JOIN mealmory.plan_spec AS s
-        ON p.id = s.pid `;
 
-        if (!reqData.time) {
-            query += `WHERE p.id = ? `;
+        // meal plan 검색
+
+        query = `SELECT id, type, total, time FROM ${schema.COMMON}.plan WHERE 1 = 1 AND uid = ? `;
+        queryParams.push(userInfo.id);
+        if (reqData.time) {
+            let start = moment(reqData.time).startOf("day").format("YYYY-MM-DD HH:mm:ss");
+            let end = moment(reqData.time).endOf("day").format("YYYY-MM-DD HH:mm:ss");
+            console.log(start, end);
+            query += `AND time BETWEEN ? AND ? `;
+            queryParams.push(start, end);
+        }
+
+        if (reqData.id) {
+            query += `AND id = ? `;
             queryParams.push(reqData.id);
         }
 
-        if (!reqData.id) {
-            let start = moment(reqData.time).startOf("day").format("YYYY-MM-DD HH:mm:ss");
-            let end = moment(reqData.time).endOf("day").format("YYYY-MM-DD HH:mm:ss");
+        query += ";";
 
-            query += `WHERE p.uid = ? AND p.time BETWEEN ? AND ? `;
-            queryParams.push(userInfo.id, start, end);
+        let getPlan = await mysql.query(query, queryParams);
+
+        if (!getPlan.success) {
+            res.failResponse("QueryError");
         }
 
-        query += `ORDER BY p.time ASC;`;
+        if (getPlan.rows.length === 0) {
+            res.failResponse("DataNotFound");
+            return;
+        }
+        query = "";
+        queryParams = [];
 
-        let getMealInfo = await mysql.query(query, queryParams);
+        for (let i = 0; i < getPlan.rows.length; i++) {
+            query += `SELECT pid, did, cid, fid, unit, menu, kcal, amount, carbs, protein, fat FROM ${schema.COMMON}.plan_spec WHERE uid = ? AND pid = ?;
+            `;
+            queryParams.push(userInfo.id, getPlan.rows[i].id);
+        }
 
-        if (!getMealInfo.success) {
+        let getPlanSpec = await mysql.query(query, queryParams);
+
+        if (!getPlanSpec.success) {
             res.failResponse("QueryError");
             return;
         }
 
-        if (getMealInfo.rows.length === 0) {
-            res.failResponse("MealPlanNull");
+        if (getPlanSpec.rows.length === 0) {
+            res.failResponse("Data Not Found");
             return;
         }
 
         let data = [];
+        let planSpecRows = [].concat(...getPlanSpec.rows);
 
-        for (let i = 0; i < getMealInfo.rows.length; i++) {
-            let row = getMealInfo.rows[i];
+        for (let row of getPlan.rows) {
+            let menu_spec = planSpecRows.filter((spec) => spec.pid == row.id);
+            let newObj = new Object();
+            newObj.id = row.id;
+            newObj.type = row.type;
+            newObj.total = row.total;
+            newObj.time = row.time;
+            newObj.menu_spec = menu_spec;
 
-            let item = {
-                id: row.id,
-                uid: row.uid,
-                type: row.type,
-                total: row.total,
-                time: row.time,
-                list: [],
-            };
-
-            for (let j = 0; j < row.list.length; j++) {
-                let list = row.list[j];
-
-                let carbs = row.cpf[j].carbs;
-                let protein = row.cpf[j].protein;
-                let fat = row.cpf[j].fat;
-
-                let listItem = {
-                    menu: list.menu,
-                    kcal: list.kcal,
-                    amount: list.amount,
-                    unit: list.unit,
-                    did: list.did,
-                    cid: list.cid,
-                    fid: list.fid,
-                    menu_spec: {
-                        carbs: carbs,
-                        protein: protein,
-                        fat: fat,
-                    },
-                };
-                item.list.push(listItem);
-            }
-
-            data.push(item);
+            data.push(newObj);
         }
 
         res.successResponse(data);
     } catch (exception) {
+        console.log(exception);
         log.error(exception);
         res.failResponse("ServerError");
         return;
     }
 });
+
 module.exports = router;

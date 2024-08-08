@@ -202,6 +202,26 @@ util.dateArray = function (startDate, endDate) {
     return dateArray;
 };
 
+util.didVerify = function (did) {
+    let result = "";
+    switch (Number(did)) {
+        case 1:
+            result = "in";
+            break;
+        case 2:
+            result = "out";
+            break;
+        case 3:
+            result = "processed";
+            break;
+        case 4:
+            result = "";
+            break;
+    }
+
+    return result;
+};
+
 JSON.emptyObject = JSON.stringify({});
 JSON.emptyArray = JSON.stringify([]);
 
