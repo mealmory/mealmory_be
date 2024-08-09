@@ -284,14 +284,22 @@ router.get("/info", jwtVerify, infoValidator, async (req, res) => {
         let planSpecRows = [].concat(...getPlanSpec.rows);
 
         for (let row of getPlan.rows) {
-            let menu_spec = planSpecRows.filter((spec) => spec.pid == row.id);
-            let newObj = new Object();
-            newObj.id = row.id;
-            newObj.type = row.type;
-            newObj.total = row.total;
-            newObj.time = row.time;
-            newObj.menu_spec = menu_spec;
+            let menuList = planSpecRows.filter((spec) => spec.pid == row.id);
 
+            menuList = menuList.map((item) => {
+                return {
+                    ...item,
+                    unit: util.unitChange(item.unit),
+                };
+            });
+
+            let newObj = {
+                id: row.id,
+                type: util.typeChange(row.type),
+                total: row.total,
+                time: row.time,
+                menuList: menuList,
+            };
             data.push(newObj);
         }
 
