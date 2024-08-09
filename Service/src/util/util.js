@@ -205,13 +205,13 @@ util.dateArray = function (startDate, endDate) {
 util.didVerify = function (did) {
     let result = "";
     switch (Number(did)) {
-        case 1:
+        case 2:
             result = "in";
             break;
-        case 2:
+        case 3:
             result = "out";
             break;
-        case 3:
+        case 1:
             result = "processed";
             break;
         case 4:
