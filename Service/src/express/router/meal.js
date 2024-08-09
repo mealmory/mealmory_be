@@ -486,4 +486,29 @@ router.delete("/delete", jwtVerify, deleteValidator, async (req, res) => {
         return;
     }
 });
+
+const foodValidator = [query("did").notEmpty().isInt().isIn([1, 2, 3, 4]), query("cid").notEmpty().isInt({ min: 0, max: 44 }), query("name").notEmpty().isString(), validationHandler.handle];
+
+router.get("/food", jwtVerify, foodValidator, async (req, res) => {
+    try {
+        let userInfo = req.userInfo;
+        let reqData = matchedData(req);
+
+        let userVerify = await mysql.query(`SELECT id, email FROM ${schema.COMMON}.user WHERE id = ?;`, [userInfo.id]);
+
+        if (!userVerify.success) {
+            res.failResponse("QueryError");
+            return;
+        }
+
+        if (userVerify.rows.length === 0) {
+            res.failResponse("DataNotFound");
+            return;
+        }
+    } catch (exception) {
+        log.error(exception);
+        res.failResponse("ServerError");
+        return;
+    }
+});
 module.exports = router;
