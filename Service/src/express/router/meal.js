@@ -13,6 +13,7 @@ const { matchedData, validationResult, body, query } = require("express-validato
 const validationHandler = require("../validationHandler");
 const schema = config.database.schema;
 const moment = require("moment-timezone");
+const { jwt } = require("../../util/config");
 
 const addValidator = [
     body("time").notEmpty().isString(),
@@ -263,7 +264,7 @@ router.get("/info", jwtVerify, infoValidator, async (req, res) => {
         queryParams = [];
 
         for (let i = 0; i < getPlan.rows.length; i++) {
-            query += `SELECT pid, did, cid, fid, unit, menu, kcal, amount, carbs, protein, fat FROM ${schema.COMMON}.plan_spec WHERE uid = ? AND pid = ?;
+            query += `SELECT id AS sid, pid, did, cid, fid, unit, menu, kcal, amount, carbs, protein, fat FROM ${schema.COMMON}.plan_spec WHERE uid = ? AND pid = ?;
             `;
             queryParams.push(userInfo.id, getPlan.rows[i].id);
         }
@@ -311,4 +312,178 @@ router.get("/info", jwtVerify, infoValidator, async (req, res) => {
     }
 });
 
+const editValidator = [
+    body("id").notEmpty().isInt(),
+    body("total").notEmpty().isFloat(),
+    body("menuList").notEmpty(),
+    body("menuList.*").notEmpty().isObject(),
+    body("menuList.*.menu").notEmpty().isString(),
+    body("menuList.*.kcal").notEmpty().isFloat(),
+    body("menuList.*.amount").notEmpty().isFloat(),
+    body("menuList.*.unit").notEmpty().isInt().isIn([0, 1]),
+    body("menuList.*.did").notEmpty().isInt().isIn([1, 2, 3, 4]),
+    body("menuList.*.cid").notEmpty().isInt(),
+    body("menuList.*.fid").notEmpty().isInt(),
+    body("menuList.*.carbs").notEmpty().isFloat(),
+    body("menuList.*.protein").notEmpty().isFloat(),
+    body("menuList.*.fat").notEmpty().isFloat(),
+    validationHandler.handle,
+];
+
+router.put("/edit", jwtVerify, editValidator, async (req, res) => {
+    try {
+        let userInfo = req.userInfo;
+        let reqData = matchedData(req);
+
+        let userVerify = await mysql.query(`SELECT id, email FROM ${schema.COMMON}.user WHERE id = ?;`, [userInfo.id]);
+
+        if (!userVerify.success) {
+            res.failResponse("QueryError");
+            return;
+        }
+
+        if (userVerify.rows.length === 0) {
+            res.failResponse("DataNotFound");
+            return;
+        }
+
+        let menuList = util.safeParseJSON(reqData.menuList);
+
+        let query = "";
+        let queryParams = [];
+        let d_count = 0;
+        for (let i = 0; i < menuList.length; i++) {
+            let table = util.didVerify(menuList[i].did);
+
+            if (table !== "") {
+                query += `
+                SELECT id FROM ${schema.DATA}.${table} WHERE did = ? AND cid = ? AND id = ?;
+            `;
+                queryParams.push(menuList[i].did, menuList[i].cid, menuList[i].fid);
+                d_count += 1;
+            } else {
+                continue;
+            }
+        }
+
+        let foodVerify = await mysql.query(query, queryParams);
+
+        if (!foodVerify.success) {
+            res.failResponse("QueryError");
+            return;
+        }
+
+        if (foodVerify.rows.length !== d_count) {
+            res.failResponse("ParameterInvalid");
+            return;
+        }
+
+        let result = await mysql.transactionStatement(async (method) => {
+            let query = `DELETE FROM ${schema.COMMON}.plan_spec WHERE pid = ? AND uid = ?;`;
+            let queryParams = [reqData.id, userInfo.id];
+
+            let deletePlanSpec = await method.execute(query, queryParams);
+
+            if (!deletePlanSpec.success) {
+                return mysql.TRANSACTION.ROLLBACK;
+            }
+
+            query = `INSERT INTO ${schema.COMMON}.plan_spec (uid, pid, did, cid, fid, unit, menu, kcal, amount, carbs, protein, fat) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`;
+
+            for (let i = 0; i < menuList.length; i++) {
+                queryParams = [userInfo.id, reqData.id, menuList[i].did, menuList[i].cid, menuList[i].fid, menuList[i].unit, menuList[i].menu, menuList[i].kcal, menuList[i].amount, menuList[i].carbs, menuList[i].protein, menuList[i].fat];
+                let inputPlanSpec = await method.execute(query, queryParams);
+
+                if (!inputPlanSpec.success) {
+                    return mysql.TRANSACTION.ROLLBACK;
+                }
+            }
+
+            query = `UPDATE ${schema.COMMON}.plan SET total = ? WHERE id = ? AND uid = ?;`;
+            queryParams = [reqData.total, reqData.id, userInfo.id];
+
+            let updatePlan = await method.execute(query, queryParams);
+
+            if (!updatePlan.success || updatePlan.affectedRows === 0) {
+                return mysql.TRANSACTION.ROLLBACK;
+            }
+
+            return mysql.TRANSACTION.COMMIT;
+        });
+
+        if (!result.success || !result.commit) {
+            res.failResponse("TransactionError");
+            return;
+        }
+
+        res.successResponse();
+    } catch (exception) {
+        log.error(exception);
+        res.failResponse("ServerError");
+        return;
+    }
+});
+
+const deleteValidator = [body("id").notEmpty().isInt(), validationHandler.handle];
+
+router.delete("/delete", jwtVerify, deleteValidator, async (req, res) => {
+    try {
+        let userInfo = req.userInfo;
+        let reqData = matchedData(req);
+
+        let userVerify = await mysql.query(`SELECT id, email FROM ${schema.COMMON}.user WHERE id = ?;`, [userInfo.id]);
+
+        if (!userVerify.success) {
+            res.failResponse("QueryError");
+            return;
+        }
+
+        if (userVerify.rows.length === 0) {
+            res.failResponse("DataNotFound");
+            return;
+        }
+
+        let planVerify = await mysql.query(`SELECT id FROM ${schema.COMMON}.plan WHERE id = ? AND uid = ?;`, [reqData.id, userInfo.id]);
+
+        if (!planVerify.success) {
+            res.failResponse("QueryError");
+            return;
+        }
+
+        if (planVerify.rows.length === 0) {
+            res.failResponse("ParameterInvalid");
+            return;
+        }
+
+        let result = await mysql.transactionStatement(async (method) => {
+            let query = `DELETE FROM ${schema.COMMON}.plan_spec WHERE pid = ? AND uid = ?;`;
+            let queryParams = [reqData.id, userInfo.id];
+            let deletePlanSpec = await method.execute(query, queryParams);
+
+            if (!deletePlanSpec.success) {
+                return mysql.TRANSACTION.ROLLBACK;
+            }
+
+            query = `DELETE FROM ${schema.COMMON}.plan WHERE id = ? AND uid = ?;`;
+            let deletePlan = await method.execute(query, queryParams);
+
+            if (!deletePlan.success) {
+                return mysql.TRANSACTION.ROLLBACK;
+            }
+
+            return mysql.TRANSACTION.COMMIT;
+        });
+
+        if (!result.success || !result.commit) {
+            res.failResponse("TransactionError");
+            return;
+        }
+
+        res.successResponse();
+    } catch (exception) {
+        log.error(exception);
+        res.failResponse("ServerError");
+        return;
+    }
+});
 module.exports = router;
