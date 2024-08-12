@@ -16,6 +16,7 @@ const userRouter = require("./router/user");
 const mainRouter = require("./router/main");
 const mealRouter = require("./router/meal");
 const noticeRouter = require("./router/notice");
+const statRouter = require("./router/stat");
 
 express.init = function () {
     return new Promise(async (resolve, reject) => {
@@ -88,6 +89,7 @@ express.init = function () {
             webServer.use("/api/main", mainRouter);
             webServer.use("/api/meal", mealRouter);
             webServer.use("/api/notice", noticeRouter);
+            webServer.use("/api/stat", statRouter);
 
             let routers = engine.Router();
 

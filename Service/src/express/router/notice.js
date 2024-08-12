@@ -7,11 +7,10 @@
 const express = require("express");
 const router = express.Router();
 const mysql = require("../../mysql/main");
-const { util, log, config, verify } = require("../../util");
+const { util, log, config } = require("../../util");
 const { jwtVerify } = require("../../util/verify");
 const { matchedData, validationResult, body, query } = require("express-validator");
 const validationHandler = require("../validationHandler");
-const { jwt } = require("../../util/config");
 const schema = config.database.schema;
 
 // TODO: 관리자 등급 설정

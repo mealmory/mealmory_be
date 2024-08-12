@@ -167,8 +167,8 @@ util.rangeDate = function (dateStr, option) {
 
     switch (Number(option)) {
         case 1:
-            start = date.startOf().format("YYYY-MM-DD HH:mm:ss");
-            end = date.endOf().format("YYYY-MM-DD HH:mm:ss");
+            start = date.startOf("day").format("YYYY-MM-DD HH:mm:ss");
+            end = date.endOf("day").format("YYYY-MM-DD HH:mm:ss");
             break;
         case 2:
             start = date.clone().startOf("week").day(0).format("YYYY-MM-DD HH:mm:ss");
