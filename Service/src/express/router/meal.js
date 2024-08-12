@@ -487,7 +487,7 @@ router.delete("/delete", jwtVerify, deleteValidator, async (req, res) => {
     }
 });
 
-const foodValidator = [query("did").notEmpty().isInt().isIn([1, 2, 3]), query("cid").notEmpty().isInt({ min: 1, max: 44 }), query("name").notEmpty().isString(), validationHandler.handle];
+const foodValidator = [query("did").notEmpty().isInt().isIn([1, 2, 3]), query("cid").notEmpty().isInt({ min: 1, max: 44 }), query("name").notEmpty().isString(), query("page").notEmpty().isInt(), validationHandler.handle];
 
 router.get("/food", jwtVerify, foodValidator, async (req, res) => {
     try {
@@ -505,22 +505,36 @@ router.get("/food", jwtVerify, foodValidator, async (req, res) => {
             res.failResponse("DataNotFound");
             return;
         }
+
+        let startId = util.pagination(reqData.page);
+
         let table = util.didVerify(reqData.did);
         let nameString = `%${reqData.name}%`;
 
-        let searchFood = await mysql.query(`SELECT * FROM ${schema.DATA}.${table} WHERE did = ? AND cid = ? AND name LIKE ?`, [reqData.did, reqData.cid, nameString]);
+        let query = `
+        SELECT COUNT(id) AS count FROM ${schema.DATA}.${table} WHERE did = ? AND cid = ? AND name LIKE ? ORDER BY id;
+        SELECT * FROM ${schema.DATA}.${table} WHERE did = ? AND cid = ? AND name LIKE ? ORDER BY id LIMIT 10 OFFSET ?;
+        `;
+        let queryParams = [reqData.did, reqData.cid, nameString, reqData.did, reqData.cid, nameString, startId];
+
+        let searchFood = await mysql.query(query, queryParams);
 
         if (!searchFood.success) {
             res.failResponse("QueryError");
             return;
         }
-
-        if (searchFood.rows.length === 0) {
+        if (searchFood.rows[1].length === 0 || searchFood.rows[0][0].count == 0) {
             res.failResponse("DataNotFound");
             return;
         }
 
-        res.successResponse(searchFood.rows);
+        let count = util.calPage(searchFood.rows[0][0].count);
+
+        let data = {
+            count: count,
+            list: searchFood.rows[1],
+        };
+        res.successResponse(data);
     } catch (exception) {
         log.error(exception);
         res.failResponse("ServerError");

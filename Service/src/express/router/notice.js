@@ -68,12 +68,19 @@ router.get("/search", jwtVerify, searchValidator, async (req, res) => {
             return;
         }
 
-        let startId;
-        if (reqData.page == 1) {
-            startId = 0;
-        } else {
-            startId = reqData.page * 10 - 9;
+        let countNotice = await mysql.query(`SELECT COUNT(id) AS count FROM ${schema.COMMON}.notice;`);
+
+        if (!countNotice.success) {
+            res.failResponse("QueryError");
+            return;
         }
+
+        if (countNotice.rows.length === 0) {
+            res.failResponse("DataNotFound");
+            return;
+        }
+
+        let startId = util.pagination(reqData.page);
 
         let getNotice = await mysql.query(`SELECT id, title, DATE_FORMAT(reg_date, '%Y-%m-%d') AS date FROM ${schema.COMMON}.notice LIMIT 10 OFFSET ?;`, [startId]);
 
@@ -86,6 +93,9 @@ router.get("/search", jwtVerify, searchValidator, async (req, res) => {
             res.failResponse("DataNotFound");
             return;
         }
+
+        let count = util.calPage(countNotice.rows[0].count);
+        console.log(count);
 
         let getFlag = await mysql.query(`SELECT notice FROM ${schema.COMMON}.user_flag WHERE uid = ?;`, [userInfo.id]);
 
@@ -101,6 +111,7 @@ router.get("/search", jwtVerify, searchValidator, async (req, res) => {
 
         let data = {};
         data.flag = getFlag.rows[0].notice;
+        data.count = count;
         data.notice = getNotice.rows;
 
         res.successResponse(data);

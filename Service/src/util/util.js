@@ -257,6 +257,29 @@ util.unitChange = function (unit) {
     return result;
 };
 
+util.pagination = function (page) {
+    let result = 0;
+    if (Number(page) === 1) {
+        result = 0;
+    } else {
+        result = Number(page) * 10 - 9;
+    }
+
+    return result;
+};
+
+util.calPage = function (count) {
+    let result = 0;
+
+    result = Math.floor(Number(count) / 10);
+
+    if (Number(count) % 10 > 0) {
+        result += 1;
+    }
+
+    return result;
+};
+
 JSON.emptyObject = JSON.stringify({});
 JSON.emptyArray = JSON.stringify([]);
 
