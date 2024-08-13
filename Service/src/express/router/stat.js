@@ -57,11 +57,40 @@ router.get("/home", jwtVerify, homeValidator, async (req, res) => {
                  ORDER BY date ASC;`;
         queryParams = [userInfo.id, range.start, range.end];
 
-        let getRank = await mysql.query(query, queryParams);
+        let getTotal = await mysql.query(query, queryParams);
 
-        if (!getRank.success) {
+        if (!getTotal.success) {
             res.failResponse("QueryError");
             return;
+        }
+
+        if (getTotal.rows.legnth === 0) {
+            res.failResponse("DataNotFound");
+            return;
+        }
+
+        query = `SELECT bmr FROM ${schema.COMMON}.user WHERE id = ?;`;
+        queryParams = [userInfo.id];
+
+        let getBmr = await mysql.query(query, queryParams);
+
+        if (!getBmr.success) {
+            res.failResponse("QueryError");
+            return;
+        }
+
+        if (getBmr.rows.legnth === 0) {
+            res.failResponse("DataNotFound");
+            return;
+        }
+
+        let more,
+            fit,
+            less = 0;
+        let userBmr = Number(getBmr.rows[0].bmr);
+
+        for (let row of getTotal.rows) {
+            let lower = 0;
         }
     } catch (exception) {
         log.error(exception);
