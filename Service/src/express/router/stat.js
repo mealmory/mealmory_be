@@ -15,7 +15,7 @@ const schema = config.database.schema;
 
 const homeValidator = [query("type").notEmpty().isInt().isIn([1, 2, 3]), query("date").notEmpty().isString(), validationHandler.handle];
 
-router.get("/home", jwtVerify, homeValidator, async (req, res) => {
+router.get("/", jwtVerify, homeValidator, async (req, res) => {
     try {
         let userInfo = req.userInfo;
         let reqData = matchedData(req);
@@ -64,7 +64,7 @@ router.get("/home", jwtVerify, homeValidator, async (req, res) => {
             return;
         }
 
-        if (getTotal.rows.legnth === 0) {
+        if (getTotal.rows.length === 0) {
             res.failResponse("DataNotFound");
             return;
         }
@@ -79,19 +79,17 @@ router.get("/home", jwtVerify, homeValidator, async (req, res) => {
             return;
         }
 
-        if (getBmr.rows.legnth === 0) {
+        if (getBmr.rows.length === 0) {
             res.failResponse("DataNotFound");
             return;
         }
 
         let fitRange = util.fitRange(Number(getBmr.rows[0].bmr));
-        console.log(fitRange);
         let more = 0;
         let fit = 0;
         let less = 0;
 
         for (let row of getTotal.rows) {
-            console.log(row);
             if (row.total > fitRange.top) {
                 more += 1;
             } else if (row.total < fitRange.bottom) {
@@ -101,7 +99,29 @@ router.get("/home", jwtVerify, homeValidator, async (req, res) => {
             }
         }
 
-        util.calRank(more, fit, less);
+        getTotal.rows.forEach((row) => {
+            let roundTotal = Math.round(row.total * 100) / 100;
+            if (dateArray.hasOwnProperty(row.date)) {
+                dateArray[row.date] = roundTotal;
+            }
+        });
+
+        for (let date in dateArray) {
+            if (dateArray[date].length === 0) {
+                dateArray[date] = 0;
+            }
+        }
+
+        let rank = util.calRank(more, fit, less);
+        let cpfGraph = getSummary.rows[0];
+
+        let data = {
+            rank: rank,
+            cpfGraph: cpfGraph,
+            dailyGraph: dateArray,
+        };
+
+        res.successResponse(data);
     } catch (exception) {
         log.error(exception);
         res.failResponse("ServerError");

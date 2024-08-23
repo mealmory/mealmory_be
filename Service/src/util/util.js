@@ -281,7 +281,6 @@ util.calPage = function (count) {
 };
 
 util.fitRange = function (bmr) {
-    console.log(bmr);
     let result = {
         top: bmr + 100,
         bottom: bmr - 100,
@@ -292,14 +291,57 @@ util.fitRange = function (bmr) {
 
 util.calRank = function (more, fit, less) {
     let result = {};
-    let value = [more, fit, less];
-    let sortValue = [...value].sort((a, b) => b - a);
+    // array[0] = more
+    // array[1] = fit
+    // array[2] = less
+    let array = [
+        {
+            name: "more",
+            value: 0,
+        },
+        {
+            name: "fit",
+            value: 0,
+        },
+        {
+            name: "less",
+            value: 0,
+        },
+    ];
 
-    value.forEach((value) => {
-        let rank = sortValue.indexOf(value) + 1;
-        result[value] = rank;
-    });
+    if (fit >= more && fit >= less) {
+        if (more >= less) {
+            array[0].value += 1;
+        } else {
+            array[2].value += 1;
+        }
+    } else if (more >= fit && more >= less) {
+        if (fit >= less) {
+            array[1].value += 1;
+        } else {
+            array[2].value += 1;
+        }
+    } else if (less >= fit && less >= more) {
+        if (fit >= more) {
+            array[1].value += 1;
+        } else {
+            array[0].value += 1;
+        }
+    }
 
+    array = array.sort((a, b) => b.value - a.value);
+
+    for (let i = 0; i < array.length; i++) {
+        if (array[i].name === "fit") {
+            result[i + 1] = "보통";
+        }
+        if (array[i].name === "more") {
+            result[i + 1] = "과식";
+        }
+        if (array[i].name === "less") {
+            result[i + 1] = "소식";
+        }
+    }
     return result;
 };
 
