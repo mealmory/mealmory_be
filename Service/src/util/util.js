@@ -280,6 +280,29 @@ util.calPage = function (count) {
     return result;
 };
 
+util.fitRange = function (bmr) {
+    console.log(bmr);
+    let result = {
+        top: bmr + 100,
+        bottom: bmr - 100,
+    };
+
+    return result;
+};
+
+util.calRank = function (more, fit, less) {
+    let result = {};
+    let value = [more, fit, less];
+    let sortValue = [...value].sort((a, b) => b - a);
+
+    value.forEach((value) => {
+        let rank = sortValue.indexOf(value) + 1;
+        result[value] = rank;
+    });
+
+    return result;
+};
+
 JSON.emptyObject = JSON.stringify({});
 JSON.emptyArray = JSON.stringify([]);
 

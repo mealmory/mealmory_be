@@ -171,7 +171,6 @@ router.get("/search", jwtVerify, searchValidator, async (req, res) => {
         query += `ORDER BY time ASC;`;
 
         let getPlan = await mysql.query(query, queryParams);
-
         if (!getPlan.success) {
             res.failResponse("QueryError");
             return;
@@ -512,7 +511,7 @@ router.get("/food", jwtVerify, foodValidator, async (req, res) => {
 
         let query = `
         SELECT COUNT(id) AS count FROM ${schema.DATA}.${table} WHERE did = ? AND cid = ? AND name LIKE ? ORDER BY id;
-        SELECT * FROM ${schema.DATA}.${table} WHERE did = ? AND cid = ? AND name LIKE ? ORDER BY id LIMIT 10 OFFSET ?;
+        SELECT id, name, did, cid, unit, value, kcal, protein, fat, carbs, amount, make, source FROM ${schema.DATA}.${table} WHERE did = ? AND cid = ? AND name LIKE ? ORDER BY id LIMIT 10 OFFSET ?;
         `;
         let queryParams = [reqData.did, reqData.cid, nameString, reqData.did, reqData.cid, nameString, startId];
 

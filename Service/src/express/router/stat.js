@@ -34,7 +34,7 @@ router.get("/home", jwtVerify, homeValidator, async (req, res) => {
 
         let range = util.rangeDate(reqData.date, reqData.type);
         let dateArray = util.dateArray(range.start, range.end);
-        console.log(dateArray);
+
         let query = `SELECT COALESCE(SUM(spec.kcal), 0) AS kcal, 
                             COALESCE(SUM(spec.carbs), 0) AS carbs,
                             COALESCE(SUM(spec.protein), 0) AS protein,
@@ -84,14 +84,24 @@ router.get("/home", jwtVerify, homeValidator, async (req, res) => {
             return;
         }
 
-        let more,
-            fit,
-            less = 0;
-        let userBmr = Number(getBmr.rows[0].bmr);
+        let fitRange = util.fitRange(Number(getBmr.rows[0].bmr));
+        console.log(fitRange);
+        let more = 0;
+        let fit = 0;
+        let less = 0;
 
         for (let row of getTotal.rows) {
-            let lower = 0;
+            console.log(row);
+            if (row.total > fitRange.top) {
+                more += 1;
+            } else if (row.total < fitRange.bottom) {
+                less += 1;
+            } else {
+                fit += 1;
+            }
         }
+
+        util.calRank(more, fit, less);
     } catch (exception) {
         log.error(exception);
         res.failResponse("ServerError");

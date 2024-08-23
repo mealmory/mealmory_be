@@ -46,7 +46,7 @@ router.get("/home", jwtVerify, async (req, res) => {
         }
         let user = {};
 
-        if ((userData.rows[0].total = String(null))) {
+        if (userData.rows[0].total == String(null)) {
             user.total = 0;
         } else {
             user.total = userData.rows[0].total;
