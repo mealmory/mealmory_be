@@ -13,6 +13,10 @@ const cors = require("cors");
 
 // router 파일로드 작성 위치
 const userRouter = require("./router/user");
+const mainRouter = require("./router/main");
+const mealRouter = require("./router/meal");
+const noticeRouter = require("./router/notice");
+const statRouter = require("./router/stat");
 
 express.init = function () {
     return new Promise(async (resolve, reject) => {
@@ -82,6 +86,10 @@ express.init = function () {
             // router 루트 경로 설정 지점
             // TODO: 순환 하여 router 파일읽어오는 기능 추가
             webServer.use("/api/user", userRouter);
+            webServer.use("/api/main", mainRouter);
+            webServer.use("/api/meal", mealRouter);
+            webServer.use("/api/notice", noticeRouter);
+            webServer.use("/api/stat", statRouter);
 
             let routers = engine.Router();
 
@@ -142,13 +150,18 @@ express._printFailLog = function (req, res, dataTable) {
  */
 express.validateTimestamp = function (req, res, next) {
     let timestamp = Number(req.method === "GET" ? req.query.timestamp : req.body.timestamp);
+    let currentTimestamp = util.getCurrentTimestamp();
+
+    console.log("Received timestamp:", timestamp);
+    console.log("Current timestamp:", currentTimestamp);
+    console.log("Timestamp difference:", Math.abs(timestamp - currentTimestamp));
 
     if (!timestamp || !Number.isInteger(timestamp)) {
         res.failResponse("ParameterInvalid");
         return;
     }
 
-    if (Math.abs(timestamp - util.getCurrentTimestamp()) > 10) {
+    if (Math.abs(timestamp - util.getCurrentTimestamp()) > 20) {
         res.failResponse("TimestampInvalid");
         return;
     }

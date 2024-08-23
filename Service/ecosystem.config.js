@@ -1,7 +1,7 @@
 module.exports = {
     apps: [
         {
-            name: "mealmory-local",
+            name: "mealmory",
             script: "./src/main.js",
             exec_mode: "fork",
 
