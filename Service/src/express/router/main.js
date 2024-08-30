@@ -13,6 +13,7 @@ const { matchedData, validationResult, body, query } = require("express-validato
 const validationHandler = require("../validationHandler");
 const schema = config.database.schema;
 
+const moment = require("moment");
 router.get("/home", jwtVerify, async (req, res) => {
     try {
         let userInfo = req.userInfo;
@@ -44,12 +45,28 @@ router.get("/home", jwtVerify, async (req, res) => {
             res.failResponse("QueryError");
             return;
         }
+
+        let today = moment().format("YYYY-MM-DD HH:mm:ss");
+        let dateRange = util.rangeDate(String(today), 1);
+
+        let userTotal = await mysql.query(
+            `
+            SELECT SUM(total) AS total FROM ${schema.COMMON}.plan WHERE uid = ? AND time BETWEEN ? AND ?;
+            `,
+            [userInfo.id, dateRange.start, dateRange.end],
+        );
+
+        if (!userTotal.success || userTotal.rows.legnth === 0) {
+            res.failResponse("QueryError");
+            return;
+        }
+
         let user = {};
 
         if (userData.rows[0].total == String(null)) {
             user.total = 0;
         } else {
-            user.total = userData.rows[0].total;
+            user.total = userTotal.rows[0].total.toFixed(2);
         }
 
         user.height = userData.rows[0].height;
@@ -80,7 +97,6 @@ router.get("/home", jwtVerify, async (req, res) => {
         average.bmr = avgData.rows[0].bmr;
         average.height = avgData.rows[0].height;
         average.weight = avgData.rows[0].weight;
-        console.log(average);
         let data = {};
 
         data.avg = average;

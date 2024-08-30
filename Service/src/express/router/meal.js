@@ -70,26 +70,29 @@ router.post("/add", jwtVerify, addValidator, async (req, res) => {
                 continue;
             }
         }
+        if (query !== "") {
+            let foodVerify = await mysql.query(query, queryParams);
 
-        let foodVerify = await mysql.query(query, queryParams);
+            if (!foodVerify.success) {
+                res.failResponse("QueryError");
+                return;
+            }
 
-        if (!foodVerify.success) {
-            res.failResponse("QueryError");
-            return;
-        }
-
-        if (foodVerify.rows.length !== d_count) {
-            res.failResponse("ParameterInvalid");
-            return;
+            if (foodVerify.rows.length !== d_count) {
+                res.failResponse("ParameterInvalid");
+                return;
+            }
         }
 
         // type 검증 1,2,3,4 type은 하루에 한번 + 5 type은 여러번 가능
         if (Number(reqData.type) !== 5) {
             queryParams = [];
 
-            query = `SELECT id FROM ${schema.COMMON}.plan WHERE uid = ? AND type = ?;`;
-            queryParams.push(userInfo.id, reqData.type);
+            let dateRange = util.rangeDate(reqData.time, 1);
 
+            query = `SELECT id FROM ${schema.COMMON}.plan WHERE uid = ? AND type = ? AND time BETWEEN ? AND ?;`;
+            queryParams.push(userInfo.id, reqData.type, dateRange.start, dateRange.end);
+            console.log(query, queryParams);
             let planVerify = await mysql.query(query, queryParams);
 
             if (!planVerify.success) {
