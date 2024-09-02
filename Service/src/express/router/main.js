@@ -32,38 +32,20 @@ router.get("/home", jwtVerify, async (req, res) => {
 
         let userData = await mysql.query(
             `
-            SELECT u.id, u.gender, u.age, u.height, u.weight, u.bmi, u.bmr, u.amr, p.total, DATE_FORMAT(u.reg_date, '%Y-%m-%d') AS date 
-            FROM ${schema.COMMON}.user u
-            LEFT OUTER JOIN ${schema.COMMON}.plan p
-            ON u.id = p.uid
-            WHERE u.id = ?;
+            SELECT id, gender, age, height, weight, bmi, bmr, amr, DATE_FORMAT(reg_date, '%Y-%m-%d') AS date
+            FROM ${schema.COMMON}.user
+            WHERE id = ?;
             `,
             [userInfo.id],
         );
-
+        console.log(userData.rows[0]);
         if (!userData.success || userData.rows.legnth === 0) {
             res.failResponse("QueryError");
             return;
         }
-
-        let today = moment().format("YYYY-MM-DD HH:mm:ss");
-        let dateRange = util.rangeDate(String(today), 1);
-
-        let userTotal = await mysql.query(
-            `
-            SELECT SUM(total) AS total FROM ${schema.COMMON}.plan WHERE uid = ? AND time BETWEEN ? AND ?;
-            `,
-            [userInfo.id, dateRange.start, dateRange.end],
-        );
-
-        if (!userTotal.success || userTotal.rows.legnth === 0) {
-            res.failResponse("QueryError");
-            return;
-        }
-
         let user = {};
 
-        if (userData.rows[0].total == String(null)) {
+        if (userData.rows[0].total == null) {
             user.total = 0;
         } else {
             user.total = userTotal.rows[0].total.toFixed(2);
