@@ -38,7 +38,7 @@ router.get("/home", jwtVerify, async (req, res) => {
             `,
             [userInfo.id],
         );
-        console.log(userData.rows[0]);
+
         if (!userData.success || userData.rows.legnth === 0) {
             res.failResponse("QueryError");
             return;
@@ -53,15 +53,14 @@ router.get("/home", jwtVerify, async (req, res) => {
             `,
             [userInfo.id, dateRange.start, dateRange.end],
         );
-        console.log(userTotal.rows[0]);
+
         if (!userTotal.success || userTotal.rows.legnth === 0) {
             res.failResponse("QueryError");
             return;
         }
 
         let user = {};
-
-        if (userData.rows[0].total == null) {
+        if (userTotal.rows[0].total === null) {
             user.total = 0;
         } else {
             user.total = userTotal.rows[0].total.toFixed(2);
